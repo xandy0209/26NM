@@ -259,12 +259,7 @@ export const App: React.FC = () => {
       if (!chatSessionRefs.current[sessionId]) {
            try {
                let apiKey = '';
-               try { 
-                   // 优先从process.env读取API_KEY
-                   apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || ''; 
-               } catch (e) { 
-                   console.warn("Could not access process.env", e); 
-               }
+               try { apiKey = process.env.API_KEY || ''; } catch (e) { console.warn("Could not access process.env", e); }
 
                if (!apiKey) {
                    console.warn("API Key missing, utilizing Mock Chat Mode.");
@@ -276,7 +271,7 @@ export const App: React.FC = () => {
                                "【演示模式】\n",
                                "系统检测到未配置有效的 API_KEY，当前为您展示模拟回复。\n",
                                "--------------------------------\n",
-                               `收到指令: "${JSON.stringify(msg).substring(0, 50)}..."\n`,
+                               `收到指令: “${JSON.stringify(msg).substring(0, 50)}...”\n`,
                                "--------------------------------\n",
                                "如需启用真实 AI 能力，请在部署环境或本地 .env 文件中配置 Google Gemini API Key。"
                            ];
