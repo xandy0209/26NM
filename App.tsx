@@ -1,9 +1,6 @@
-
-// ... existing imports
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord, FilterState, ChatMessage, ChatSession } from './types';
-// ... other imports
 import { MOCK_DATA, MOCK_SPN_DATA, MOCK_INTERNET_DATA, MOCK_ALARM_DATA, MOCK_IPL_DATA, MOCK_MPLS_DATA, MOCK_IGPL_DATA, MOCK_ROUTE_CITY_DATA, MOCK_ROUTE_DATA, MOCK_SUBSCRIPTION_DATA, MOCK_COMPLAINT_DATA, INNER_MONGOLIA_CITIES } from './constants';
 import { StyledInput, StyledButton, StyledSelect } from './components/UI';
 import { Pagination } from './components/Pagination';
@@ -17,14 +14,12 @@ import { ComplaintStatsView } from './components/ComplaintStatsView';
 import { AIChatPanel } from './components/AIChatPanel';
 import { WorkbenchView } from './components/WorkbenchView';
 
-// ... (Helper components Th, Td and constants remain unchanged)
 const Th = ({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th className={`p-3 font-semibold border-b border-blue-500/40 whitespace-nowrap text-xs ${className}`} {...props}>
     {children}
   </th>
 );
 
-// Helper for table data cells
 const Td = ({ children, className = "", ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
   <td className={`p-3 border-b border-blue-500/10 text-white font-mono text-xs whitespace-nowrap ${className}`} {...props}>
     {children}
@@ -35,18 +30,6 @@ type TabType = 'workbench' | 'otn' | 'spn' | 'internet' | 'alarm' | 'ipl' | 'mpl
 
 const TABS_CONFIG: { id: TabType; label: string }[] = [
   { id: 'workbench', label: '工作台' },
-  /* Temporarily hidden tabs
-  { id: 'otn', label: 'OTN专线性能指标' },
-  { id: 'spn', label: 'SPN专线性能指标' },
-  { id: 'internet', label: '互联网专线性能指标' },
-  { id: 'alarm', label: '告警查询' },
-  { id: 'ipl', label: '国际政企专线时延' },
-  { id: 'mpls', label: 'MPLS-VPN专线性能' },
-  { id: 'igpl', label: '国际政企专线业务' },
-  { id: 'routeCity', label: '传输电路途径地市' },
-  { id: 'route', label: '传输电路路由' },
-  { id: 'subscription', label: '订购业务信息' },
-  */
   { id: 'complaint', label: '投诉支撑' },
   { id: 'ai-chat', label: '智能助手' },
 ];
@@ -75,16 +58,14 @@ const FAULT_TYPES_MAPPING: Record<string, string[]> = {
 };
 const DEFAULT_FAULT_TYPES = ['光缆故障', '设备故障', '配置错误', '电力故障', '其他'];
 
-// ... (Interfaces SidebarItemDef, SidebarGroup, SIDEBAR_GROUPS, initialFilterState remain unchanged)
 interface ComplaintTabItem {
     id: string;
     label: string;
     type: 'pending' | 'todo' | 'done' | 'all' | 'detail' | 'create' | 'config' | 'stats';
     record?: ComplaintRecord;
-    // Props to trigger tab switching inside the detail view
     targetTab?: 'basic' | 'flow' | 'process';
     triggerTimestamp?: number;
-    initialData?: any; // Data for creating new ticket
+    initialData?: any;
 }
 
 interface SidebarItemDef {
@@ -155,9 +136,8 @@ const initialFilterState: FilterState = {
 };
 
 export const App: React.FC = () => {
-  // ... (State definitions remain unchanged up to handleDeleteSession)
-  const [activeTab, setActiveTab] = useState<TabType>('complaint');
-  const [visibleTabs, setVisibleTabs] = useState<TabType[]>(['complaint']);
+  const [activeTab, setActiveTab] = useState<TabType>('workbench');
+  const [visibleTabs, setVisibleTabs] = useState<TabType[]>(['workbench']);
   const [activeMenu, setActiveMenu] = useState('综合(新)'); 
   
   // Data States
@@ -194,18 +174,14 @@ export const App: React.FC = () => {
   const [complaintData, setComplaintData] = useState<ComplaintRecord[]>([]);
   const [filteredComplaintData, setFilteredComplaintData] = useState<ComplaintRecord[]>([]);
 
-  // Internal Complaint Tabs State
   const [complaintTabs, setComplaintTabs] = useState<ComplaintTabItem[]>([]);
   const [activeComplaintTabId, setActiveComplaintTabId] = useState<string | null>(null);
 
-  // Independent filters per tab
   const [tabFilters, setTabFilters] = useState<Record<string, FilterState>>({});
 
-  // Chat State
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isChatLoading, setIsChatLoading] = useState(false);
   
-  // Multi-session Chat State
   const [sessions, setSessions] = useState<ChatSession[]>([{
       id: 'default',
       title: '新会话 1',
@@ -215,10 +191,9 @@ export const App: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState('default');
   const chatSessionRefs = useRef<Record<string, Chat>>({});
 
-  // Dropdown Menu State
   const [dropdownState, setDropdownState] = useState<{ isOpen: boolean, x: number, y: number }>({ isOpen: false, x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
 
-  // Ref for Menu Scrolling
   const menuRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -243,6 +218,12 @@ export const App: React.FC = () => {
             window.removeEventListener('resize', checkScroll);
         };
     }
+  }, []);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
   }, []);
 
   const scrollMenu = (direction: 'left' | 'right') => {
@@ -430,11 +411,9 @@ You help users query data, analyze alarms, manage tickets, and providing insight
   };
 
   const handleDeleteSession = (id: string) => {
-      // Create a fresh copy of the remaining sessions
       const remainingSessions = sessions.filter(s => s.id !== id);
       
       if (remainingSessions.length === 0) {
-          // If no sessions left, immediately create a new default one
           const newId = `session-${Date.now()}`;
           const newSession = {
               id: newId,
@@ -446,16 +425,11 @@ You help users query data, analyze alarms, manage tickets, and providing insight
           setActiveSessionId(newId);
           getChatInstance(newId);
       } else {
-          // Update the session list
           setSessions(remainingSessions);
-          
-          // If the deleted session was active, switch to the first available one
           if (activeSessionId === id) {
               setActiveSessionId(remainingSessions[0].id);
           }
       }
-      
-      // Clean up the chat instance from refs
       if (chatSessionRefs.current[id]) {
           delete chatSessionRefs.current[id];
       }
@@ -574,7 +548,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
 
   const handleTicketClick = (record: ComplaintRecord) => {
       const tabId = `detail-${record.id}`;
-      // 判断是否属于待办工单环节，如果是则默认展示“工单处理”页签
       const todoStatuses = ['待受理', '处理中', '待质检', 'T0', 'T1', 'T2'];
       const targetTab = todoStatuses.includes(record.stage) ? 'process' : 'basic';
       
@@ -602,7 +575,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
 
   const handleOperationClick = (record: ComplaintRecord, isViewOnly: boolean = false) => {
       const tabId = `detail-${record.id}`;
-      // Map statuses to determine if processing view should show
       const todoStatuses = ['待受理', '处理中', '待质检', 'T0', 'T1', 'T2'];
       const shouldShowProcess = !isViewOnly && todoStatuses.includes(record.stage);
       const targetTab = shouldShowProcess ? 'process' : 'basic';
@@ -940,6 +912,58 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                     </>
                 )}
 
+                {isAll && (
+                    <>
+                        <StyledSelect 
+                            className="w-32" 
+                            value={currentFilters.businessCategory || ''} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setFilters({...currentFilters, businessCategory: val, productType: val === '专线' ? currentFilters.productType : ''});
+                            }}
+                        >
+                            <option value="">业务分类</option>
+                            {['专线', '5G专网', '物联网', '企宽'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+                        
+                        {currentFilters.businessCategory === '专线' && (
+                            <StyledSelect 
+                                className="w-32" 
+                                value={currentFilters.productType || ''} 
+                                onChange={(e) => setFilters({...currentFilters, productType: e.target.value})}
+                            >
+                                <option value="">业务类型</option>
+                                {['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </StyledSelect>
+                        )}
+
+                        <StyledSelect className="w-32" value={currentFilters.stage || ''} onChange={(e) => setFilters({...currentFilters, stage: e.target.value})}>
+                            <option value="">状态</option>
+                            {['待受理', '处理中', '待质检', '已归档'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+
+                        <StyledSelect className="w-32" value={currentFilters.ticketSource || ''} onChange={(e) => setFilters({...currentFilters, ticketSource: e.target.value})}>
+                            <option value="">工单来源</option>
+                            {['客户来电', '故障识别'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+                        
+                        <div className="flex items-center gap-1">
+                             <span className="text-xs text-blue-300 whitespace-nowrap">派单时间:</span>
+                             <StyledInput type="date" className="w-32" value={currentFilters.startDate || ''} onChange={(e) => setFilters({...currentFilters, startDate: e.target.value})} />
+                             <span className="text-xs text-blue-300">-</span>
+                             <StyledInput type="date" className="w-32" value={currentFilters.endDate || ''} onChange={(e) => setFilters({...currentFilters, endDate: e.target.value})} />
+                        </div>
+                    </>
+                )}
+
                 {isPending && (
                     <>
                         <StyledSelect className="w-32" value={currentFilters.productType || ''} onChange={(e) => setFilters({...currentFilters, productType: e.target.value, faultType: ''})}>
@@ -1144,8 +1168,38 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                         )}
                         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                             {activeTab === 'complaint' && complaintTabs.length > 0 && (
-                                <div className="h-10 flex items-end border-b border-blue-500/20 bg-[#0c1a35]/30 px-0 pt-0 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                                    {complaintTabs.map((tab, index) => ( <div key={tab.id} onClick={() => { setActiveComplaintTabId(tab.id); if (tab.type === 'stats') setActiveSidebarFolder('stats'); else if (tab.type === 'config') setActiveSidebarFolder('capabilities'); else if (tab.type === 'create') setActiveSidebarFolder('new'); else if (tab.type !== 'detail') setActiveSidebarFolder(tab.id); else setActiveSidebarFolder(''); }} className={`group flex items-center gap-2 px-4 py-2 cursor-pointer text-xs font-medium border-t border-r rounded-t-sm min-w-[100px] justify-center transition-all mr-0 ${index === 0 ? 'border-l' : ''} ${activeComplaintTabId === tab.id ? 'bg-[#0b1730]/20 border-blue-500/30 border-l text-neon-blue border-b-transparent z-10 shadow-[0_-2px_10px_rgba(0,210,255,0.1)]' : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-[#0b1730]/30 border-b border-transparent'}`}> <span>{tab.label}</span> <button onClick={(e) => handleCloseComplaintTab(e, tab.id)} className={`ml-1 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${activeComplaintTabId === tab.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}> <XIcon /> </button> </div> ))}
+                                <div className="flex items-end gap-[6px] pl-0 pr-4 h-[35px] mt-px border-b border-blue-500/20 bg-[#0c1a35]/30 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                                    {complaintTabs.map((tab) => {
+                                        const isActive = activeComplaintTabId === tab.id;
+                                        return (
+                                            <div 
+                                                key={tab.id} 
+                                                onContextMenu={(e) => {
+                                                    e.preventDefault();
+                                                    setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+                                                }}
+                                                onClick={() => { setActiveComplaintTabId(tab.id); if (tab.type === 'stats') setActiveSidebarFolder('stats'); else if (tab.type === 'config') setActiveSidebarFolder('capabilities'); else if (tab.type === 'create') setActiveSidebarFolder('new'); else if (tab.type !== 'detail') setActiveSidebarFolder(tab.id); else setActiveSidebarFolder(''); }} 
+                                                className={`
+                                                    relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[90px] px-3 overflow-hidden group
+                                                    ${isActive 
+                                                        ? 'z-10' 
+                                                        : 'border-t border-x border-blue-500/30 border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-[#094F8B]/[0.05]'}
+                                                `}
+                                            >
+                                                 {isActive && (
+                                                    <>
+                                                        <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
+                                                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
+                                                        <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                                        <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                                        <div className="absolute bottom-0 left-0 right-0 h-[10px] bg-gradient-to-t from-[#00d2ff]/30 to-transparent pointer-events-none" />
+                                                    </>
+                                                )}
+                                                <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
+                                                <button onClick={(e) => handleCloseComplaintTab(e, tab.id)} className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}> <XIcon /> </button> 
+                                            </div> 
+                                        );
+                                    })}
                                 </div>
                             )}
                             {activeTab === 'complaint' && complaintTabs.length === 0 ? ( <div className="flex-1 flex flex-col items-center justify-center bg-[#0b1730]/10 backdrop-blur-sm border border-blue-500/20 text-blue-300/50"> <div className="text-5xl mb-4">👈</div> <div className="text-lg">请点击左侧菜单查看工单列表</div> </div> ) : ( <> {activeTab === 'complaint' ? ( renderComplaintContent() ) : ( renderStandardView() )} </> )}
@@ -1176,6 +1230,34 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                         onClick={() => { handleOpenTab('complaint'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
                     >
                         综调-投诉支撑
+                    </div>
+                </div>
+            )}
+
+            {contextMenu && (
+                <div 
+                    className="fixed z-[9999] bg-[#0A3458]/95 border border-blue-500/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md py-1 w-32 rounded-sm animate-[fadeIn_0.1s_ease-out]"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                >
+                    <div 
+                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-xs text-blue-100 hover:text-white transition-colors" 
+                        onClick={() => {
+                            handleCloseComplaintTab(null, contextMenu.tabId);
+                            setContextMenu(null);
+                        }}
+                    >
+                        关闭当前标签
+                    </div>
+                    <div 
+                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-xs text-blue-100 hover:text-white transition-colors" 
+                        onClick={() => {
+                            setComplaintTabs([]);
+                            setActiveComplaintTabId(null);
+                            setActiveSidebarFolder('');
+                            setContextMenu(null);
+                        }}
+                    >
+                        关闭所有标签
                     </div>
                 </div>
             )}

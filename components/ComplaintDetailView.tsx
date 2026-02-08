@@ -400,11 +400,10 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                         <div className="grid grid-cols-3 gap-4 bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm">
                             <InfoItem label="工单编号" value={displayRecord.ticketNo} />
                             <InfoItem label="工单状态" value={displayRecord.stage} />
-                            <InfoItem label="SLA时限" value={displayRecord.slaDeadline} />
-                            <InfoItem label="故障时间" value={displayRecord.faultTime} />
-                            <InfoItem label="投诉时间" value={displayRecord.complaintTime} />
                             <InfoItem label="工单来源" value={displayRecord.ticketSource || '客户来电'} />
-                            <InfoItem label="投诉内容" value={displayRecord.complaintContent} span={3} multiline />
+                            <InfoItem label="派单时间" value={displayRecord.complaintTime} />
+                            <InfoItem label="处理时限" value={displayRecord.slaDeadline} />
+                            <InfoItem label="地市" value={displayRecord.assigneeCity} />
                         </div>
                     </div>
 
@@ -424,23 +423,40 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                         <div className="grid grid-cols-3 gap-4 bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm">
                             <InfoItem label="业务类型" value={businessInfo.productType} />
                             <InfoItem label="产品实例" value={businessInfo.productInstance} />
-                            <InfoItem label="电路代号" value={businessInfo.circuitCode} />
+                            <InfoItem label="电路编号" value={businessInfo.circuitCode} />
                             <InfoItem label="客户名称" value={businessInfo.customerName} />
                             <InfoItem label="客户编号" value={businessInfo.customerCode} />
-                            <InfoItem label="当前处理人" value={displayRecord.assignee} />
-                            <InfoItem label="A端地址" value={businessInfo.serviceAddressA} span={3} />
-                            <InfoItem label="Z端地址" value={businessInfo.serviceAddressZ} span={3} />
+                            
+                            {businessInfo.productType === '数据专线' ? (
+                                <>
+                                    <InfoItem label="A端地址" value={businessInfo.serviceAddressA} span={3} />
+                                    <InfoItem label="Z端地址" value={businessInfo.serviceAddressZ} span={3} />
+                                </>
+                            ) : (
+                                <InfoItem label="业务地址" value={businessInfo.serviceAddressA} span={3} />
+                            )}
                         </div>
                     </div>
 
                     <div>
                         <h3 className="text-sm font-bold text-neon-blue mb-3 uppercase tracking-wider border-l-2 border-neon-blue pl-2">
-                            联系人信息
+                            投诉信息
                         </h3>
                         <div className="grid grid-cols-3 gap-4 bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm">
-                            <InfoItem label="联系人" value={displayRecord.contactPerson} />
-                            <InfoItem label="联系电话" value={displayRecord.contactPhone} />
-                            <InfoItem label="受理地市" value={displayRecord.assigneeCity} />
+                            <InfoItem label="故障时间" value={displayRecord.faultTime} />
+                            <InfoItem label="投诉人" value={displayRecord.contactPerson} />
+                            <InfoItem label="投诉人电话" value={displayRecord.contactPhone} />
+                            <InfoItem label="投诉内容" value={displayRecord.complaintContent} span={3} multiline />
+                            
+                            {(displayRecord.stage === '已归档' || displayRecord.stage === 'Closed') && (
+                                <>
+                                    <div className="col-span-3 h-px bg-blue-500/20 my-2"></div>
+                                    <InfoItem label="故障类型" value={displayRecord.faultType} />
+                                    <InfoItem label="处理结果" value={displayRecord.faultResult} />
+                                    <div className="col-span-1"></div>
+                                    <InfoItem label="处理说明" value={displayRecord.faultCause} span={3} multiline />
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
