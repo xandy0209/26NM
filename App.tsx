@@ -1,3 +1,4 @@
+
 // ... existing imports
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
@@ -222,7 +223,6 @@ export const App: React.FC = () => {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
 
-  // ... (checkScroll, useEffect, scrollMenu, getChatInstance, handleSendMessage, handleNewSession, handleRenameSession remain same)
   const checkScroll = () => {
     if (menuRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = menuRef.current;
@@ -461,7 +461,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
       }
   };
 
-  // ... (rest of the file remains unchanged: handleSelectSession, activeSessionMessages, handleExpandChat, filters, pagination, effects, render methods)
   const handleSelectSession = (id: string) => { setActiveSessionId(id); };
   
   const activeSessionMessages = useMemo(() => {
@@ -553,8 +552,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
       }
   };
 
-  // ... (handleCloseComplaintTab, handleTicketClick, handleOperationClick, handleDispatchClick, handleSearch, currentFilteredData, paginatedData, handleExportClick, handleExportConfirm, handleComplaintSubmit, toggleFullScreen, renderStandardView, renderComplaintContent remain unchanged)
-  
   const handleCloseComplaintTab = (e: React.MouseEvent | null, id: string) => {
       if (e) e.stopPropagation();
       const newTabs = complaintTabs.filter(t => t.id !== id);
@@ -577,17 +574,39 @@ You help users query data, analyze alarms, manage tickets, and providing insight
 
   const handleTicketClick = (record: ComplaintRecord) => {
       const tabId = `detail-${record.id}`;
-      if (!complaintTabs.find(t => t.id === tabId)) {
-          setComplaintTabs(prev => [...prev, { id: tabId, label: `详情: ${record.ticketNo}`, type: 'detail', record: record }]);
-      }
+      // 判断是否属于待办工单环节，如果是则默认展示“工单处理”页签
+      const todoStatuses = ['待受理', '处理中', '待质检', 'T0', 'T1', 'T2'];
+      const targetTab = todoStatuses.includes(record.stage) ? 'process' : 'basic';
+      
+      setComplaintTabs(prev => {
+          const existing = prev.find(t => t.id === tabId);
+          if (existing) {
+              return prev.map(t => t.id === tabId ? { 
+                  ...t, 
+                  targetTab, 
+                  triggerTimestamp: Date.now() 
+              } : t);
+          }
+          return [...prev, { 
+              id: tabId, 
+              label: `详情: ${record.ticketNo}`, 
+              type: 'detail', 
+              record: record, 
+              targetTab, 
+              triggerTimestamp: Date.now() 
+          }];
+      });
       setActiveComplaintTabId(tabId);
       setActiveSidebarFolder('');
   };
 
   const handleOperationClick = (record: ComplaintRecord, isViewOnly: boolean = false) => {
       const tabId = `detail-${record.id}`;
-      const shouldShowProcess = !isViewOnly && ['T0', 'T1', 'T2'].includes(record.stage);
+      // Map statuses to determine if processing view should show
+      const todoStatuses = ['待受理', '处理中', '待质检', 'T0', 'T1', 'T2'];
+      const shouldShowProcess = !isViewOnly && todoStatuses.includes(record.stage);
       const targetTab = shouldShowProcess ? 'process' : 'basic';
+      
       setComplaintTabs(prev => {
           const existing = prev.find(t => t.id === tabId);
           if (existing) return prev.map(t => t.id === tabId ? { ...t, targetTab, triggerTimestamp: Date.now() } : t);
@@ -607,14 +626,12 @@ You help users query data, analyze alarms, manage tickets, and providing insight
   };
 
   const handleSearch = () => {
-    // ... same filtering logic as before ...
     const f = currentFilters;
     const applyFilters = (item: any, isAlarm = false) => {
         let match = true;
         if (f.productInstance && !item.productInstance.toLowerCase().includes(f.productInstance.toLowerCase())) match = false;
         if (activeTab !== 'mpls' && activeTab !== 'subscription' && f.circuitCode && !item.circuitCode.toLowerCase().includes(f.circuitCode.toLowerCase())) match = false;
         
-        // Date filters for standard views
         if (activeTab !== 'igpl' && activeTab !== 'routeCity' && activeTab !== 'route' && activeTab !== 'subscription' && activeTab !== 'complaint' && activeTab !== 'ai-chat' && activeTab !== 'workbench') {
             const timeField = isAlarm ? item.eventTime : item.metricTime;
             if (timeField) {
@@ -636,55 +653,33 @@ You help users query data, analyze alarms, manage tickets, and providing insight
         if (activeTab === 'complaint' && activeComplaintTabId) {
              const activeInternalTab = complaintTabs.find(t => t.id === activeComplaintTabId);
              
-             // Keyword filtering logic
              if (f.keyword) {
                  const kw = f.keyword.toLowerCase();
                  const matchesKeyword = (item.ticketNo && item.ticketNo.toLowerCase().includes(kw)) || (item.customerName && item.customerName.toLowerCase().includes(kw)) || (item.customerCode && item.customerCode.toLowerCase().includes(kw)) || (item.circuitCode && item.circuitCode.toLowerCase().includes(kw)) || (item.productInstance && item.productInstance.toLowerCase().includes(kw));
                  if (!matchesKeyword) match = false;
              }
              
-             if (f.businessType && item.businessCategory !== f.businessType) match = false;
-             
-             // Specific Complaint Tab Logic
              if (activeInternalTab && activeInternalTab.type !== 'detail' && activeInternalTab.type !== 'create' && activeInternalTab.type !== 'config' && activeInternalTab.type !== 'stats') {
                  
-                 // Pending Dispatch Logic
                  if (activeInternalTab.type === 'pending') {
-                     if (item.stage !== 'T0') match = false;
-                     // Only filter by productType if selected
+                     if (item.stage !== '待受理' && item.stage !== 'T0') match = false;
                      if (f.productType && item.productType !== f.productType) match = false;
-                     // Only filter by faultType if selected
                      if (f.faultType && item.faultType !== f.faultType) match = false;
                  }
-                 // Todo Logic
                  else if (activeInternalTab.type === 'todo') {
-                     if (item.stage !== 'T0' && item.stage !== 'T1' && item.stage !== 'T2') match = false;
-                     
+                     if (!['待受理', '处理中', '待质检', 'T0', 'T1', 'T2'].includes(item.stage)) match = false;
                      if (f.stage && item.stage !== f.stage) match = false;
-
-                     // Filter by productType (Business Type)
-                     if (f.productType && item.productType !== f.productType) match = false;
-                     
                      if (f.businessCategory && item.businessCategory !== f.businessCategory) match = false;
+                     if (f.productType && item.productType !== f.productType) match = false;
                  }
-                 // Done Logic
                  else if (activeInternalTab.type === 'done') {
                      if (f.stage && item.stage !== f.stage) match = false;
-                     // In 'done' view, we usually show history/archived, but let's assume default is 'Closed' or 'T2' completed
-                     // The user requested 'Done' list, typically meaning closed or finished
-                     // But if stage filter is applied, follow it. If not, maybe show all non-active?
-                     // Existing logic: else if (!f.stage && item.stage !== 'T2' && item.stage !== 'Closed') match = false;
-                     // Let's stick to existing default logic for now unless explicit filter
-                     else if (!f.stage && item.stage !== 'T2' && item.stage !== 'Closed') match = false;
-                     
-                     // ADDED: Business Category & Product Type filtering for Done tab
+                     else if (!f.stage && item.stage !== '已归档' && item.stage !== 'Closed') match = false;
                      if (f.businessCategory && item.businessCategory !== f.businessCategory) match = false;
                      if (f.productType && item.productType !== f.productType) match = false;
-
                      if (f.startDate && new Date(item.complaintTime.replace(' ', 'T')).getTime() < new Date(f.startDate).getTime()) match = false;
                      if (f.endDate && new Date(item.complaintTime.replace(' ', 'T')).getTime() > new Date(f.endDate).getTime()) match = false;
                  }
-                 // All Logic
                  else if (activeInternalTab.type === 'all') {
                      if (f.stage && item.stage !== f.stage) match = false;
                      if (f.startDate && new Date(item.complaintTime.replace(' ', 'T')).getTime() < new Date(f.startDate).getTime()) match = false;
@@ -709,7 +704,7 @@ You help users query data, analyze alarms, manage tickets, and providing insight
     else if (activeTab === 'route') setFilteredRouteData(routeData.filter(item => applyFilters(item)));
     else if (activeTab === 'subscription') setFilteredSubscriptionData(subscriptionData.filter(item => applyFilters(item)));
     else if (activeTab === 'complaint') setFilteredComplaintData(complaintData.filter(item => applyFilters(item)));
-    else if (activeTab === 'workbench') {} // No filtering for Workbench view yet
+    else if (activeTab === 'workbench') {} 
     else setFilteredAlarmData(alarmData.filter(item => applyFilters(item, true)));
     setPagination(prev => ({ ...prev, currentPage: 1 })); 
   };
@@ -769,7 +764,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
   const renderStandardView = () => null; 
 
   const renderComplaintContent = () => {
-    // ... existing implementation ...
     const activeTabObj = complaintTabs.find(t => t.id === activeComplaintTabId);
     if (!activeTabObj) return null;
     if (activeTabObj.type === 'create') return <ComplaintCreateView onCancel={() => handleCloseTab(null as any, activeTabObj.id as any)} onSubmit={() => { handleCloseComplaintTab(null, activeTabObj.id); handleSearch(); }} initialData={activeTabObj.initialData} />;
@@ -777,7 +771,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
     if (activeTabObj.type === 'config') return <ConfigCapabilitiesView />;
     if (activeTabObj.type === 'stats') return <ComplaintStatsView />;
 
-    // ... existing table rendering logic ...
     const isPending = activeTabObj.type === 'pending';
     const isTodo = activeTabObj.type === 'todo';
     const isDone = activeTabObj.type === 'done';
@@ -785,13 +778,12 @@ You help users query data, analyze alarms, manage tickets, and providing insight
     
     const showDateInputs = activeTabObj.type === 'done' || activeTabObj.type === 'all';
     
-    // ... column definitions ...
     const pendingKeywordPlaceholder = "客户名称/客户编号/业务标识";
     const pendingCols = [
         { label: '故障时间', key: 'faultTime' },
         { label: '故障类型', key: 'faultType' },
         { label: '故障描述', key: 'complaintContent' },
-        { label: '业务类型', key: 'businessCategory' }, 
+        { label: '业务类型', key: 'productType' }, 
         { label: '业务标识', key: 'productInstance' },
         { label: '客户名称', key: 'customerName' },
         { label: '客户编号', key: 'customerCode' },
@@ -857,16 +849,97 @@ You help users query data, analyze alarms, manage tickets, and providing insight
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0b1730]/40 backdrop-blur-sm border border-blue-500/30">
-            {/* Filter Bar ... */}
             <div className="bg-blue-900/10 p-3 border-b border-blue-500/20 flex flex-wrap items-center gap-3 shrink-0">
-               {/* ... filters ... */}
                <StyledInput 
                     placeholder={currentPlaceholder} 
                     className="w-80" 
                     value={currentFilters.keyword || ''} 
                     onChange={(e) => setFilters({...currentFilters, keyword: e.target.value})} 
                 />
-                {/* ... other filters based on tab type ... */}
+                
+                {isTodo && (
+                    <>
+                        <StyledSelect 
+                            className="w-32" 
+                            value={currentFilters.businessCategory || ''} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setFilters({...currentFilters, businessCategory: val, productType: val === '专线' ? currentFilters.productType : ''});
+                            }}
+                        >
+                            <option value="">业务分类</option>
+                            {['专线', '5G专网', '物联网', '企宽'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+                        
+                        {currentFilters.businessCategory === '专线' && (
+                            <StyledSelect 
+                                className="w-32" 
+                                value={currentFilters.productType || ''} 
+                                onChange={(e) => setFilters({...currentFilters, productType: e.target.value})}
+                            >
+                                <option value="">业务类型</option>
+                                {['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </StyledSelect>
+                        )}
+
+                        <StyledSelect className="w-32" value={currentFilters.stage || ''} onChange={(e) => setFilters({...currentFilters, stage: e.target.value})}>
+                            <option value="">状态</option>
+                            {['待受理', '处理中', '待质检'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+                    </>
+                )}
+
+                {isDone && (
+                    <>
+                        <StyledSelect 
+                            className="w-32" 
+                            value={currentFilters.businessCategory || ''} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setFilters({...currentFilters, businessCategory: val, productType: val === '专线' ? currentFilters.productType : ''});
+                            }}
+                        >
+                            <option value="">业务分类</option>
+                            {['专线', '5G专网', '物联网', '企宽'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+                        
+                        {currentFilters.businessCategory === '专线' && (
+                            <StyledSelect 
+                                className="w-32" 
+                                value={currentFilters.productType || ''} 
+                                onChange={(e) => setFilters({...currentFilters, productType: e.target.value})}
+                            >
+                                <option value="">业务类型</option>
+                                {['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </StyledSelect>
+                        )}
+
+                        <StyledSelect className="w-32" value={currentFilters.stage || ''} onChange={(e) => setFilters({...currentFilters, stage: e.target.value})}>
+                            <option value="">状态</option>
+                            {['已归档'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </StyledSelect>
+                        
+                        <div className="flex items-center gap-1">
+                             <span className="text-xs text-blue-300 whitespace-nowrap">派单时间:</span>
+                             <StyledInput type="date" className="w-32" value={currentFilters.startDate || ''} onChange={(e) => setFilters({...currentFilters, startDate: e.target.value})} />
+                             <span className="text-xs text-blue-300">-</span>
+                             <StyledInput type="date" className="w-32" value={currentFilters.endDate || ''} onChange={(e) => setFilters({...currentFilters, endDate: e.target.value})} />
+                        </div>
+                    </>
+                )}
+
                 {isPending && (
                     <>
                         <StyledSelect className="w-32" value={currentFilters.productType || ''} onChange={(e) => setFilters({...currentFilters, productType: e.target.value, faultType: ''})}>
@@ -881,21 +954,18 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                         </StyledSelect>
                     </>
                 )}
-                {/* ... (rest of filter rendering logic) ... */}
-                {/* ... Buttons ... */}
-                <div className="flex items-center gap-3 ml-auto">
+                <div className="flex items-center gap-3">
                     <StyledButton variant="toolbar" onClick={handleSearch} icon={<SearchIcon />} className="whitespace-nowrap">查询</StyledButton>
                     <StyledButton variant="toolbar" onClick={handleExportClick} icon={<DownloadIcon />} className="whitespace-nowrap">导出</StyledButton>
                 </div>
             </div>
             
-            {/* Table Area ... */}
             <div className="flex-1 overflow-auto bg-[#0b1730]/20 scrollbar-thin">
                 <table className="w-full text-left text-sm whitespace-nowrap border-separate border-spacing-0">
                     <thead className="sticky top-0 bg-[#0c2242] text-white z-10 shadow-sm">
                         <tr> 
                             {currentCols.map(col => <Th key={col.key}>{col.label}</Th>)}
-                            <Th className="text-center bg-[#0c2242] sticky right-0 z-20 shadow-[-5px_0_10px_rgba(0,0,0,0.1)]">操作</Th> 
+                            <Th className="text-center bg-[#0c2242] sticky right-0 z-20 shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th> 
                         </tr>
                     </thead>
                     <tbody className="text-white">
@@ -904,7 +974,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                                 const record = item as ComplaintRecord;
                                 return (
                                 <tr key={record.id} className="hover:bg-blue-600/10 transition-colors border-b border-blue-500/10 last:border-0 group">
-                                    {/* ... Row Content based on tab type ... */}
                                     {isPending ? (
                                         <>
                                             <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.faultTime}</td>
@@ -915,24 +984,62 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                                             <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
                                             <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
                                         </>
+                                    ) : isTodo ? (
+                                        <>
+                                            <td className="p-3 font-mono text-neon-blue cursor-pointer hover:underline border-b border-blue-500/10" onClick={() => handleTicketClick(record)}>{record.ticketNo}</td>
+                                            <td className="p-3 border-b border-blue-500/10">
+                                                <span className={`px-2 py-0.5 rounded-sm text-[10px] border ${
+                                                    record.stage === '处理中' || record.stage === 'T1' ? 'bg-blue-500/20 border-blue-500/40 text-blue-300' :
+                                                    record.stage === '待受理' || record.stage === 'T0' ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300' :
+                                                    'bg-green-500/20 border-green-500/40 text-green-300'
+                                                }`}>
+                                                    {record.stage}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.complaintTime}</td>
+                                            <td className="p-3 font-mono text-white border-b border-blue-500/10">{record.slaDeadline}</td>
+                                            <td className="p-3 max-w-[150px] truncate border-b border-blue-500/10" title={record.complaintContent}>{record.complaintContent}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.businessCategory}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.productType}</td>
+                                            <td className="p-3 font-mono border-b border-blue-500/10">{record.productInstance}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
+                                            <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
+                                        </>
                                     ) : (
-                                        // ... other cases ...
                                         <>
                                             <td className="p-3 font-mono text-neon-blue cursor-pointer hover:underline border-b border-blue-500/10" onClick={() => handleTicketClick(record)}>{record.ticketNo}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.stage}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
+                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.complaintTime}</td>
+                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.slaDeadline}</td>
+                                            <td className="p-3 max-w-[150px] truncate border-b border-blue-500/10" title={record.complaintContent}>{record.complaintContent}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.businessCategory}</td>
+                                            <td className="p-3 border-b border-blue-500/10">
+                                                {isDone && record.businessCategory !== '专线' ? '' : record.productType}
+                                            </td>
                                             <td className="p-3 font-mono border-b border-blue-500/10">{record.productInstance}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.circuitCode}</td>
-                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.faultTime}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.slaStatus}</td>
-                                            <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.assignee}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
+                                            <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
+                                            { (isDone || isAll) && <td className="p-3 font-mono text-gray-400 border-b border-blue-500/10">2026-01-11 11:30:00</td> }
                                         </>
                                     )}
-                                    <td className="p-3 text-center sticky right-0 shadow-[-5px_0_10px_rgba(0,0,0,0.1)] bg-[#0b1730] border-b border-blue-500/10">
+                                    <td className="p-3 text-center sticky right-0 shadow-[-5px_0_10px_rgba(0,0,0,0.1)] bg-[#0b1730] border-b border-blue-500/10 border-l border-blue-500/20">
                                         <div className="flex items-center justify-center gap-2">
-                                            {/* ... Actions ... */}
-                                            <button onClick={(e) => { e.stopPropagation(); handleOperationClick(record, true); }} className="text-xs px-2 py-0.5 bg-blue-600/20 border border-blue-500/50 hover:bg-blue-600/50 text-blue-300 rounded">
-                                                查看
+                                            <button onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if (isPending) {
+                                                    handleDispatchClick(record);
+                                                } else if (isTodo) {
+                                                    handleOperationClick(record, false); 
+                                                } else {
+                                                    handleOperationClick(record, true); 
+                                                }
+                                            }} className="text-xs px-2 py-0.5 bg-blue-600/20 border border-blue-500/50 hover:bg-blue-600/50 text-blue-300 rounded">
+                                                {isPending ? '派单' : 
+                                                 isTodo ? (
+                                                     record.stage === '待受理' || record.stage === 'T0' ? '受理' :
+                                                     record.stage === '处理中' || record.stage === 'T1' ? '处理' :
+                                                     record.stage === '待质检' || record.stage === 'T2' ? '质检' : '查看'
+                                                 ) : '查看'}
                                             </button>
                                         </div>
                                     </td>
@@ -943,7 +1050,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                 </table>
             </div>
             
-            {/* Pagination ... */}
             <div className="bg-[#1e293b]/50 h-[40px] shrink-0 border-t-0 flex items-center">
                 <Pagination 
                     currentPage={pagination.currentPage} 
@@ -968,7 +1074,7 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                 <div ref={menuRef} className="flex items-center gap-1 h-full overflow-x-auto no-scrollbar scroll-smooth px-2 w-full" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {MENU_ITEMS.map(item => { 
                         const isActive = activeMenu === item; 
-                        const hasDropdown = item === '综合(新)'; // Condition for dropdown
+                        const hasDropdown = item === '综合(新)'; 
                         if (hasDropdown) {
                             return (
                                 <div 
@@ -999,7 +1105,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
               <div className="flex items-center gap-3"><span className="text-sm font-medium text-blue-100 tracking-wide shrink-0">吴军校</span><div className="w-8 h-8 rounded-full overflow-hidden border border-blue-400/50 shadow-[0_0_8px_rgba(0,210,255,0.4)] shrink-0"><img src="https://tvbox-67o.pages.dev/head.jpg" alt="User" className="w-full h-full object-cover" /></div></div>
            </div>
         </nav>
-        {/* Changed background color to #0A3458/90 as requested */}
         <div className="flex items-center shrink-0 w-full bg-[#0A3458]/90 z-40 overflow-x-auto no-scrollbar">
             {visibleTabs.length === 0 ? ( <div className="text-gray-400 text-sm px-4 py-2 italic">无打开的页签</div> ) : (
                 visibleTabs.map(tabId => {
@@ -1053,7 +1158,6 @@ You help users query data, analyze alarms, manage tickets, and providing insight
             {isChatPanelOpen && activeTab !== 'ai-chat' && ( <div className="fixed right-0 top-[60px] bottom-0 w-[520px] z-[100] animate-[slideInRight_0.3s_ease-out]"> <AIChatPanel messages={activeSessionMessages} sessions={sessions} activeSessionId={activeSessionId} onNewSession={handleNewSession} onSelectSession={handleSelectSession} onSendMessage={handleSendMessage} isLoading={isChatLoading} mode="sidebar" onExpand={handleExpandChat} onClose={() => setIsChatPanelOpen(false)} onRenameSession={handleRenameSession} onDeleteSession={handleDeleteSession} /> </div> )}
             {!isChatPanelOpen && activeTab !== 'ai-chat' && ( <button onClick={() => setIsChatPanelOpen(true)} className="fixed right-6 bottom-10 z-50 w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full shadow-[0_0_20px_rgba(0,210,255,0.6)] flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-pulse" title="打开智能助手"> <BotIcon /> </button> )}
             
-            {/* Dropdown Portal */}
             {dropdownState.isOpen && (
                 <div 
                     className="fixed z-[60] bg-[#0A3458]/30 border border-blue-500/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md py-2 w-36 rounded-sm animate-[fadeIn_0.1s_ease-out]"

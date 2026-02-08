@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { StyledButton, StyledSelect, StyledInput } from './UI';
 import { Pagination } from './Pagination';
@@ -171,7 +172,7 @@ export const ComplaintStatsView: React.FC = () => {
 
             {/* Filter Bar */}
             <div className="flex-1 flex flex-col p-6 overflow-hidden">
-                <div className="bg-blue-900/10 p-3 border border-blue-500/20 rounded-sm mb-4 flex items-center gap-4 shrink-0">
+                <div className="bg-blue-900/10 p-3 border border-blue-500/20 rounded-sm mb-4 flex flex-wrap items-center gap-4 shrink-0">
                     <div className="flex items-center gap-2">
                         <label className="text-xs text-white">月份</label>
                         <StyledInput 
@@ -227,7 +228,7 @@ export const ComplaintStatsView: React.FC = () => {
                         </div>
                     )}
                     
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-2">
                          <StyledButton variant="toolbar" onClick={handleSearch} icon={<DownloadIcon />}>
                             导出
                         </StyledButton>

@@ -1,4 +1,3 @@
-
 import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord } from './types';
 
 // Helper to format numbers with commas
@@ -54,7 +53,7 @@ const ADDRESS_DATA: Record<string, { districts: string[], roads: string[] }> = {
     },
     '鄂尔多斯市': {
         districts: ['东胜区', '康巴什区', '伊金霍洛旗'],
-        roads: ['鄂尔多斯西街', '伊金霍洛西街', '天骄路', '那达慕街', '乌兰木伦街', '准格尔路', '达拉特南路']
+        roads: ['鄂尔多斯西街', '伊金霍洛西街', '天骄路', '那达慕街', '乌兰木街', '准格尔路', '达拉特南路']
     },
     '赤峰市': {
         districts: ['红山区', '松山区', '元宝山区'],
@@ -558,13 +557,6 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
             const zAddrData = getRandomAddress(cityZ);
             districtZ = zAddrData.district;
             addressZ = zAddrData.address;
-
-            // Only override province string if strictly necessary, but user said "System cities only simulate IM".
-            // So we keep ProvinceZ as IM or maybe map 'Cross-province' to an external name but using internal city data?
-            // The request says "Systems cities only simulate IM".
-            // So I will set ProvinceZ to "内蒙古自治区" or match CityZ's province.
-            // But if Service Level is "Cross-province", logically ProvinceZ should be different.
-            // I will keep ProvinceZ as "内蒙古自治区" to strictly follow "Only IM cities", implying this is a provincial view or simulation.
         }
 
         data.push({
@@ -596,9 +588,21 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
 // Generate Mock Data for Complaint
 export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
     const data: ComplaintRecord[] = [];
-    const stages: ('T0' | 'T1' | 'T2' | 'Closed')[] = ['T0', 'T1', 'T2', 'Closed'];
+    // Requested statuses for simulation
+    const stages: ('待受理' | '处理中' | '待质检' | '已归档')[] = ['待受理', '处理中', '待质检', '已归档'];
     const businessCategories = ['专线', '5G专网', '物联网', '企宽'];
-    const privateLineTypes = ['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线'];
+    
+    // Product types per category
+    const productTypePools: Record<string, string[]> = {
+        '专线': ['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'],
+        '5G专网': ['5G比邻模式', '5G如翼模式', '5G尊享模式'],
+        '物联网': ['NB-IoT', '4G Cat.1', '5G RedCap'],
+        '企宽': ['商务宽带', '沿街商铺宽带', '极速企宽']
+    };
+
+    // Specific requested types for the 'Fault Dispatch' scenario
+    const allowedFaultDispatchTypes = ['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'];
+
     const faultResults = ['已修复', '误报', '观察中'];
     const faultTypes = ['光缆故障', '设备故障', '配置错误', '电力故障', '其他'];
     const assigneeRoles = ['铁通班组', '分公司客响', '综调中心'];
@@ -629,11 +633,21 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
 
     for (let i = 0; i < count; i++) {
         const { productInstance, circuitCode, cityA, cityZ, timeStr } = generateCommonFields(i, 'Complaint');
-        const stage = stages[Math.floor(Math.random() * stages.length)];
-        const businessCategory = businessCategories[Math.floor(Math.random() * businessCategories.length)];
+        
+        // Cycle through requested statuses
+        const stage = stages[i % stages.length];
+
+        let businessCategory = '';
         let productType = '';
-        if (businessCategory === '专线') {
-            productType = privateLineTypes[Math.floor(Math.random() * privateLineTypes.length)];
+
+        // For simulation, make sure Todo items mostly consist of requested types
+        if (stage !== '已归档') {
+            businessCategory = '专线';
+            productType = allowedFaultDispatchTypes[i % allowedFaultDispatchTypes.length];
+        } else {
+            businessCategory = businessCategories[Math.floor(Math.random() * businessCategories.length)];
+            const pool = productTypePools[businessCategory] || ['通用业务'];
+            productType = pool[Math.floor(Math.random() * pool.length)];
         }
         
         const addrA = getRandomAddress(cityA);
@@ -654,22 +668,22 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
 
         const record: ComplaintRecord = {
             id: `comp-${i}`,
-            ticketNo: `TS-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`,
+            ticketNo: `TS-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}${(new Date().getDate()).toString().padStart(2, '0')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
             stage,
             productInstance,
             circuitCode,
             customerName: realCustomers[Math.floor(Math.random() * realCustomers.length)],
-            customerCode: `C-${Math.floor(Math.random() * 1000)}`,
+            customerCode: `C-${Math.floor(Math.random() * 1000).toString().padStart(4, '0')}`,
             serviceAddressA: `${cityA}${addrA.district}${addrA.address}`,
             serviceAddressZ: `${cityZ}${addrZ.district}${addrZ.address}`,
             complaintContent: realComplaints[Math.floor(Math.random() * realComplaints.length)],
             faultTime: timeStr,
-            complaintTime: timeStr,
-            contactPerson: `Contact-${i}`,
+            complaintTime: timeStr, // "派单时间"
+            contactPerson: `联系人-${i}`,
             contactPhone: `1380000${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
             assignee: `${assigneeRoles[Math.floor(Math.random() * assigneeRoles.length)]}-${cityA}`,
             assigneeCity: cityA,
-            slaDeadline: slaDeadline, // Calculated timestamp
+            slaDeadline: slaDeadline, // "处理时限"
             slaStatus,
             productType,
             businessCategory,
@@ -679,15 +693,14 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
         // Always generate faultType to simulate initial report info
         record.faultType = faultTypes[Math.floor(Math.random() * faultTypes.length)];
 
-        if (stage !== 'T0') {
+        if (stage !== '待受理') {
             record.faultResult = faultResults[Math.floor(Math.random() * faultResults.length)];
-            // record.faultType is set above
-            record.faultCause = 'Auto generated cause description...';
+            record.faultCause = '经排查，系统检测到基站传输中断，已通知维护人员现场修复。';
         }
 
-        if (stage === 'Closed') {
+        if (stage === '已归档') {
             record.isSatisfied = satisfaction[Math.floor(Math.random() * satisfaction.length)];
-            record.qcRemarks = 'Verified and closed.';
+            record.qcRemarks = '流程闭环，客户满意。';
         }
 
         data.push(record);

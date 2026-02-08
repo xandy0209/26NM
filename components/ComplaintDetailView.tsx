@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ComplaintRecord, SubscriptionRecord } from '../types';
 import { StyledButton, StyledSelect, StyledInput } from './UI';
@@ -42,22 +41,21 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 
 const FlowChart = ({ stage }: { stage: string }) => {
     const steps = [
-        { id: 'T0', label: '工单派发' },
-        { id: 'T1', label: '工单处理' },
-        { id: 'T2', label: '工单质检' },
-        { id: 'Closed', label: '归档' }
+        { id: 'T0', label: '工单派发', aliases: ['待受理', 'T0'] },
+        { id: 'T1', label: '工单处理', aliases: ['处理中', 'T1'] },
+        { id: 'T2', label: '工单质检', aliases: ['待质检', 'T2'] },
+        { id: 'Closed', label: '归档', aliases: ['已归档', 'Closed'] }
     ];
     
-    const activeIndex = steps.findIndex(s => s.id === stage);
-    const isClosed = stage === 'Closed';
-    // If closed, set currentIdx to 4 (steps.length) so all steps satisfy idx < currentIdx (Completed)
+    const activeIndex = steps.findIndex(s => s.aliases.includes(stage));
+    const isClosed = stage === 'Closed' || stage === '已归档';
     const currentIdx = isClosed ? 4 : activeIndex === -1 ? 0 : activeIndex;
 
-    // --- Zoom & Pan State ---
     const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(0.9); 
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    // Fix: Initialized dragStart with default coordinates as 'e' is not defined in this scope.
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
     useEffect(() => {
@@ -177,9 +175,7 @@ const FlowChart = ({ stage }: { stage: string }) => {
                             glowClass = "shadow-[0_0_15px_rgba(0,210,255,0.4)]";
                         }
 
-                        // Override for Closed Step: If closed, treat it like any other completed step to match style
                         if (step.id === 'Closed' && isClosed) {
-                             // Force completed style instead of active style
                              bgClass = "bg-[#007acc]/20 border-[#007acc] text-blue-200";
                              glowClass = ""; 
                         }
@@ -208,13 +204,11 @@ const FlowChart = ({ stage }: { stage: string }) => {
     );
 };
 
-// Helper to generate mock logs based on ticket status
 const generateLogs = (record: ComplaintRecord) => {
     const logs = [];
-    const dispatchTime = '2026-01-11 06:30:48';
-    const baseTime = new Date(dispatchTime).getTime(); 
+    const dispatchTime = record.complaintTime || '2026-01-11 06:30:48';
+    const baseTime = new Date(dispatchTime.replace(' ', 'T')).getTime(); 
     
-    // 1. Dispatch
     logs.push({
         time: dispatchTime,
         opName: '派发',
@@ -223,9 +217,8 @@ const generateLogs = (record: ComplaintRecord) => {
         info: `客户[${record.customerName}]来电报障，系统自动派单至[${record.assigneeCity}]`
     });
 
-    // 2. Processing (If T1 or later)
-    if (record.stage !== 'T0') {
-        const t1Time = '2026-01-11 06:35:48';
+    if (record.stage !== 'T0' && record.stage !== '待受理') {
+        const t1Time = new Date(baseTime + 300000).toISOString().replace('T', ' ').substring(0, 19);
         logs.push({
             time: t1Time,
             opName: '受理',
@@ -234,9 +227,8 @@ const generateLogs = (record: ComplaintRecord) => {
             info: '已接单，准备前往现场排查'
         });
 
-        // If T2 or Closed, imply T1 finished
-        if (record.stage === 'T2' || record.stage === 'Closed') {
-            const t1DoneTime = '2026-01-11 06:50:48';
+        if (['T2', 'Closed', '待质检', '已归档'].includes(record.stage)) {
+            const t1DoneTime = new Date(baseTime + 1200000).toISOString().replace('T', ' ').substring(0, 19);
             logs.push({
                 time: t1DoneTime,
                 opName: '回单',
@@ -247,9 +239,8 @@ const generateLogs = (record: ComplaintRecord) => {
         }
     }
 
-    // 3. QC / Archive (If Closed)
-    if (record.stage === 'Closed') {
-        const t2Time = new Date(baseTime + 1000 * 60 * 60 * 5).toISOString().replace('T', ' ').substring(0, 19);
+    if (record.stage === 'Closed' || record.stage === '已归档') {
+        const t2Time = new Date(baseTime + 18000000).toISOString().replace('T', ' ').substring(0, 19);
         logs.push({
             time: t2Time,
             opName: '通过',
@@ -258,7 +249,7 @@ const generateLogs = (record: ComplaintRecord) => {
             info: '回访客户满意，工单归档'
         });
         
-        const closeTime = new Date(baseTime + 1000 * 60 * 60 * 5 + 1000 * 60).toISOString().replace('T', ' ').substring(0, 19);
+        const closeTime = new Date(baseTime + 18060000).toISOString().replace('T', ' ').substring(0, 19);
         logs.push({
             time: closeTime,
             opName: '系统归档',
@@ -285,18 +276,14 @@ const generateLogs = (record: ComplaintRecord) => {
 
 export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, triggerTimestamp }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'flow' | 'process'>('basic');
-  
-  // Listen for targetTab changes to switch tab programmatically
+  const [currentStage, setCurrentStage] = useState(record.stage);
+
   useEffect(() => {
     if (targetTab) {
         setActiveTab(targetTab);
     }
   }, [triggerTimestamp]);
   
-  // Local state to simulate workflow progression
-  const [currentStage, setCurrentStage] = useState(record.stage);
-
-  // Local state for business info editing
   const [businessInfo, setBusinessInfo] = useState({
       productType: record.productType,
       productInstance: record.productInstance,
@@ -308,7 +295,6 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
   });
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
 
-  // Form states
   const [replyData, setReplyData] = useState({
       faultResult: '',
       faultType: '',
@@ -321,12 +307,10 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
       rejectReason: ''
   });
 
-  // Sync state with prop record change
   useEffect(() => {
       setCurrentStage(record.stage);
       setReplyData({ faultResult: '', faultType: '', faultCause: '' });
       setQcData({ qcResult: '', isSatisfied: '', qcRemarks: '', rejectReason: '' });
-      // Reset business info from original record
       setBusinessInfo({
           productType: record.productType,
           productInstance: record.productInstance,
@@ -338,25 +322,20 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
       });
   }, [record]);
 
-  // Workflow Handlers
   const handleAccept = () => {
-      // Simulate transition T0 (Pending) -> T1 (Processing)
-      setCurrentStage('T1');
+      setCurrentStage('处理中');
   };
 
   const handleReplySubmit = () => {
-      // Simulate transition T1 (Processing) -> T2 (QC)
-      setCurrentStage('T2');
+      setCurrentStage('待质检');
   };
 
   const handleQCSubmit = () => {
       if (qcData.qcResult === '通过') {
-          // Simulate transition T2 -> Closed
-          setCurrentStage('Closed');
+          setCurrentStage('已归档');
           setActiveTab('basic');
       } else if (qcData.qcResult === '驳回') {
-          // Simulate transition T2 -> T1 (Reject back to processing)
-          setCurrentStage('T1');
+          setCurrentStage('处理中');
       }
   };
 
@@ -373,26 +352,25 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
     setIsServiceModalOpen(false);
   };
 
-  // Determine available tabs
   const tabs = [
       { id: 'basic', label: '基本信息' },
       { id: 'flow', label: '流转信息' }
   ];
-  const canShowProcess = currentStage === 'T0' || currentStage === 'T1' || currentStage === 'T2';
+  
+  // Adjusted processing logic to handle Chinese status labels correctly
+  const processingStages = ['T0', 'T1', 'T2', '待受理', '处理中', '待质检'];
+  const canShowProcess = processingStages.includes(currentStage);
+  
   if (canShowProcess) {
       tabs.push({ id: 'process', label: '工单处理' });
   }
 
-  // Use local stage for display to show updates immediately
-  const displayRecord = { ...record, stage: currentStage };
+  const displayRecord = { ...record, stage: currentStage as any };
   const logs = generateLogs(displayRecord);
-  
-  // Ensure tab validity on state/prop change
   const currentDisplayTab = (activeTab === 'process' && !canShowProcess) ? 'basic' : activeTab;
 
   return (
     <div className="flex flex-col h-full bg-[#0b1730]/40 backdrop-blur-sm text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
-        {/* Tab Switcher - Modified for seamless merge */}
         <div className="flex items-end pt-4">
             <div className="w-6 border-b border-blue-500/20"></div>
             {tabs.map(tab => (
@@ -409,43 +387,31 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                     {tab.label}
                 </button>
             ))}
-            {/* Spacer to continue the line */}
             <div className="flex-1 border-b border-blue-500/20"></div> 
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            
-            {/* --- Basic Info Tab --- */}
             {currentDisplayTab === 'basic' && (
                 <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
-                    {/* 1. Ticket Info */}
                     <div>
                         <h3 className="text-sm font-bold text-neon-blue mb-3 uppercase tracking-wider border-l-2 border-neon-blue pl-2">
                             工单基本信息
                         </h3>
                         <div className="grid grid-cols-3 gap-4 bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm">
                             <InfoItem label="工单编号" value={displayRecord.ticketNo} />
-                            <InfoItem label="工单状态" value={
-                                displayRecord.stage === 'T0' ? '待受理' :
-                                displayRecord.stage === 'T1' ? '处理中' :
-                                displayRecord.stage === 'T2' ? '待质检' : '已归档'
-                            } />
+                            <InfoItem label="工单状态" value={displayRecord.stage} />
                             <InfoItem label="SLA时限" value={displayRecord.slaDeadline} />
-                            
                             <InfoItem label="故障时间" value={displayRecord.faultTime} />
                             <InfoItem label="投诉时间" value={displayRecord.complaintTime} />
                             <InfoItem label="工单来源" value={displayRecord.ticketSource || '客户来电'} />
-                            
                             <InfoItem label="投诉内容" value={displayRecord.complaintContent} span={3} multiline />
                         </div>
                     </div>
 
-                    {/* 2. Customer Business Info - EDITABLE */}
                     <div>
                         <h3 className="text-sm font-bold text-neon-blue mb-3 uppercase tracking-wider border-l-2 border-neon-blue pl-2 flex items-center gap-2">
                             客户业务信息
-                            {(currentStage === 'T1' || currentStage === 'T2') && (
+                            {['处理中', '待质检', 'T1', 'T2'].includes(currentStage) && (
                                 <button 
                                     onClick={() => setIsServiceModalOpen(true)}
                                     className="text-blue-400 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10"
@@ -459,17 +425,14 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                             <InfoItem label="业务类型" value={businessInfo.productType} />
                             <InfoItem label="产品实例" value={businessInfo.productInstance} />
                             <InfoItem label="电路代号" value={businessInfo.circuitCode} />
-                            
                             <InfoItem label="客户名称" value={businessInfo.customerName} />
                             <InfoItem label="客户编号" value={businessInfo.customerCode} />
-                            <InfoItem label="当前环节" value={displayRecord.assignee} />
-
+                            <InfoItem label="当前处理人" value={displayRecord.assignee} />
                             <InfoItem label="A端地址" value={businessInfo.serviceAddressA} span={3} />
                             <InfoItem label="Z端地址" value={businessInfo.serviceAddressZ} span={3} />
                         </div>
                     </div>
 
-                    {/* 3. Contact Info */}
                     <div>
                         <h3 className="text-sm font-bold text-neon-blue mb-3 uppercase tracking-wider border-l-2 border-neon-blue pl-2">
                             联系人信息
@@ -483,61 +446,55 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                 </div>
             )}
 
-            {/* --- Flow Chart Tab --- */}
             {currentDisplayTab === 'flow' && (
                 <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
                     <div className="bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm overflow-hidden">
                         <h4 className="text-xs font-bold text-blue-300 mb-2 uppercase">流程图</h4>
                         <FlowChart stage={displayRecord.stage} />
                     </div>
-
                     <div className="bg-blue-900/10 p-0 border border-blue-500/20 rounded-sm overflow-hidden">
                         <div className="px-4 py-2 border-b border-blue-500/20 bg-[#0c2242]/50">
                              <h4 className="text-xs font-bold text-blue-300 uppercase">流转日志</h4>
                         </div>
-                        <div className="p-0">
-                            <table className="w-full text-left text-xs">
-                                <thead className="bg-[#0b1730] text-white">
-                                    <tr>
-                                        <th className="p-3 font-medium border-b border-blue-500/10 w-[160px]">处理时间</th>
-                                        <th className="p-3 font-medium border-b border-blue-500/10 w-[80px]">操作</th>
-                                        <th className="p-3 font-medium border-b border-blue-500/10 w-[100px]">环节</th>
-                                        <th className="p-3 font-medium border-b border-blue-500/10 w-[150px]">处理人</th>
-                                        <th className="p-3 font-medium border-b border-blue-500/10">处理意见</th>
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-[#0b1730] text-white">
+                                <tr>
+                                    <th className="p-3 font-medium border-b border-blue-500/10 w-[160px]">处理时间</th>
+                                    <th className="p-3 font-medium border-b border-blue-500/10 w-[80px]">操作</th>
+                                    <th className="p-3 font-medium border-b border-blue-500/10 w-[100px]">环节</th>
+                                    <th className="p-3 font-medium border-b border-blue-500/10 w-[150px]">处理人</th>
+                                    <th className="p-3 font-medium border-b border-blue-500/10">处理意见</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-blue-100">
+                                {logs.map((log, idx) => (
+                                    <tr key={idx} className="hover:bg-blue-600/10 border-b border-blue-500/5 last:border-0">
+                                        <td className="p-3 font-mono text-white">{log.time}</td>
+                                        <td className="p-3">
+                                            <span className={`px-1.5 py-0.5 rounded-sm border ${
+                                                log.opName === '派发' ? 'border-yellow-500/30 text-yellow-300 bg-yellow-500/10' :
+                                                log.opName === '受理' ? 'border-blue-500/30 text-blue-300 bg-blue-500/10' :
+                                                log.opName === '回单' ? 'border-green-500/30 text-green-300 bg-green-500/10' :
+                                                log.opName === '通过' ? 'border-purple-500/30 text-purple-300 bg-purple-500/10' :
+                                                'border-gray-500/30 text-gray-300 bg-gray-500/10'
+                                            }`}>
+                                                {log.opName}
+                                            </span>
+                                        </td>
+                                        <td className="p-3">{log.stage}</td>
+                                        <td className="p-3 text-white">{log.operator}</td>
+                                        <td className="p-3 text-white">{log.info}</td>
                                     </tr>
-                                </thead>
-                                <tbody className="text-blue-100">
-                                    {logs.map((log, idx) => (
-                                        <tr key={idx} className="hover:bg-blue-600/10 border-b border-blue-500/5 last:border-0">
-                                            <td className="p-3 font-mono text-white">{log.time}</td>
-                                            <td className="p-3">
-                                                <span className={`px-1.5 py-0.5 rounded-sm border ${
-                                                    log.opName === '派发' ? 'border-yellow-500/30 text-yellow-300 bg-yellow-500/10' :
-                                                    log.opName === '受理' ? 'border-blue-500/30 text-blue-300 bg-blue-500/10' :
-                                                    log.opName === '回单' ? 'border-green-500/30 text-green-300 bg-green-500/10' :
-                                                    log.opName === '通过' ? 'border-purple-500/30 text-purple-300 bg-purple-500/10' :
-                                                    'border-gray-500/30 text-gray-300 bg-gray-500/10'
-                                                }`}>
-                                                    {log.opName}
-                                                </span>
-                                            </td>
-                                            <td className="p-3">{log.stage}</td>
-                                            <td className="p-3 text-white">{log.operator}</td>
-                                            <td className="p-3 text-white">{log.info}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
-            {/* --- Process Tab (T1/T2) --- */}
             {currentDisplayTab === 'process' && (
                 <div className="space-y-6 animate-[fadeIn_0.3s_ease-out] w-2/3 mx-auto">
-                    {/* T0: Accept */}
-                    {currentStage === 'T0' && (
+                    {(currentStage === 'T0' || currentStage === '待受理') && (
                         <div className="bg-blue-900/10 p-6 border border-blue-500/20 rounded-sm space-y-4 min-h-[200px] flex flex-col">
                              <h3 className="text-sm font-bold text-neon-blue uppercase tracking-wider border-l-2 border-neon-blue pl-2">
                                 工单受理
@@ -556,8 +513,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                         </div>
                     )}
 
-                    {/* T1: Reply */}
-                    {currentStage === 'T1' && (
+                    {(currentStage === 'T1' || currentStage === '处理中') && (
                         <div className="bg-blue-900/10 p-6 border border-blue-500/20 rounded-sm space-y-4">
                             <h3 className="text-sm font-bold text-neon-blue uppercase tracking-wider border-l-2 border-neon-blue pl-2">
                                 故障处理回单
@@ -592,7 +548,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                 <div className="col-span-2 flex items-start gap-3">
                                     <label className="w-[80px] text-right text-xs text-white shrink-0 pt-1.5">处理说明</label>
                                     <textarea 
-                                        className="flex-1 bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none"
+                                        className="flex-1 bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none leading-relaxed"
                                         value={replyData.faultCause}
                                         onChange={(e) => setReplyData({...replyData, faultCause: e.target.value})}
                                         placeholder="请详细描述故障处理过程及结果..."
@@ -606,8 +562,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                         </div>
                     )}
 
-                    {/* T2: QC */}
-                    {currentStage === 'T2' && (
+                    {(currentStage === 'T2' || currentStage === '待质检') && (
                         <div className="bg-blue-900/10 p-6 border border-blue-500/20 rounded-sm space-y-4">
                             <h3 className="text-sm font-bold text-neon-blue uppercase tracking-wider border-l-2 border-neon-blue pl-2">
                                 质检归档
@@ -645,7 +600,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                         {qcData.qcResult === '驳回' ? '驳回原因' : '质检备注'}
                                     </label>
                                     <textarea 
-                                        className="flex-1 bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none"
+                                        className="flex-1 bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none leading-relaxed"
                                         value={qcData.qcResult === '驳回' ? qcData.rejectReason : qcData.qcRemarks}
                                         onChange={(e) => qcData.qcResult === '驳回' 
                                             ? setQcData({...qcData, rejectReason: e.target.value})
@@ -664,7 +619,6 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
             )}
         </div>
         
-        {/* Service Selection Modal for Editing Business Info */}
         <ServiceSelectionModal 
             isOpen={isServiceModalOpen}
             onClose={() => setIsServiceModalOpen(false)}

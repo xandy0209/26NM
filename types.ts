@@ -213,7 +213,7 @@ export interface AlarmRecord {
 export interface ComplaintRecord {
   id: string;
   ticketNo: string;               // 工单编号
-  stage: 'T0' | 'T1' | 'T2' | 'Closed'; // 工单环节
+  stage: 'T0' | 'T1' | 'T2' | 'Closed' | '待受理' | '处理中' | '待质检' | '已归档'; // 工单环节 (Updated to support Chinese status)
   productInstance: string;        // 产品实例
   circuitCode: string;            // 电路代号
   customerName: string;           // 客户名称
