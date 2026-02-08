@@ -77,7 +77,7 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ is
   return (
     <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#0b1730]/70 backdrop-blur-[2px]">
       {/* Container Background: Dark Space Blue #0b1730 */}
-      <div className="w-[1100px] bg-[#0b1730] border border-blue-500/30 text-blue-100 font-sans shadow-[0_0_30px_rgba(0,133,208,0.2)] flex flex-col max-h-[85vh]">
+      <div className="w-[1100px] bg-[#0b1730] border border-blue-500/30 text-blue-100 font-sans shadow-[0_0_30px_rgba(0,133,208,0.2)] flex flex-col max-h-[55vh]">
         {/* Header: #0c2242/70 */}
         <div className="flex items-center justify-between px-6 py-2 bg-[#0c2242]/70 border-b border-blue-500/30 shrink-0 h-[40px]">
           <span className="text-base font-bold text-white tracking-wide">投诉业务查询选择</span>

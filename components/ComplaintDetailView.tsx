@@ -485,7 +485,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                             <tbody className="text-blue-100">
                                 {logs.map((log, idx) => (
                                     <tr key={idx} className="hover:bg-blue-600/10 border-b border-blue-500/5 last:border-0">
-                                        <td className="p-3 font-mono text-white">{log.time}</td>
+                                        <td className="p-3 font-mono text-white whitespace-nowrap">{log.time}</td>
                                         <td className="p-3">
                                             <span className={`px-1.5 py-0.5 rounded-sm border ${
                                                 log.opName === '派发' ? 'border-yellow-500/30 text-yellow-300 bg-yellow-500/10' :
