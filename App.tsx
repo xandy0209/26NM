@@ -156,8 +156,8 @@ const initialFilterState: FilterState = {
 
 export const App: React.FC = () => {
   // ... (State definitions remain unchanged up to handleDeleteSession)
-  const [activeTab, setActiveTab] = useState<TabType>('workbench');
-  const [visibleTabs, setVisibleTabs] = useState<TabType[]>(['workbench']);
+  const [activeTab, setActiveTab] = useState<TabType>('complaint');
+  const [visibleTabs, setVisibleTabs] = useState<TabType[]>(['complaint']);
   const [activeMenu, setActiveMenu] = useState('综合(新)'); 
   
   // Data States

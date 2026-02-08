@@ -66,6 +66,79 @@ const GridIcon = () => (
     </svg>
 );
 
+// --- Local Helper Components ---
+
+const MenuItem = ({ label, count, active, collapsed }: { label: string, count?: number, active?: boolean, collapsed?: boolean }) => (
+    <div className={`
+        flex items-center cursor-pointer text-blue-100 hover:bg-[#1e3a5f]/40 transition-colors
+        ${collapsed ? 'justify-center mx-auto w-full py-3 bg-[#112240]/40 border border-blue-500/20 hover:border-blue-500/40' : 'justify-between px-3 py-3 bg-[#112240]/40 border border-blue-500/20'}
+        ${active ? 'bg-[#1e3a5f]/60 border-blue-500/50' : ''}
+    `} title={collapsed ? label : ''}>
+        {collapsed ? (
+            <div className="flex items-center gap-1">
+                {count !== undefined && count > 0 && <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-[10px]">{count}</span>}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+        ) : (
+            <>
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">{label}</span>
+                </div>
+                {count !== undefined && (
+                    <div className="flex items-center gap-2">
+                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${count > 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'}`}>{count}</span>
+                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                )}
+            </>
+        )}
+    </div>
+);
+
+const SubMenuItem = ({ label, count, active }: { label: string, count?: number, active?: boolean }) => (
+    <div className={`
+        flex items-center justify-between px-4 py-2 cursor-pointer text-blue-200 hover:text-white hover:bg-[#1e3a5f]/30 transition-colors
+        ${active ? 'bg-[#1e3a5f]/40 text-neon-blue' : ''}
+    `}>
+        <span className="text-xs">{label}</span>
+        {count !== undefined && count > 0 && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 rounded-full">{count}</span>}
+    </div>
+);
+
+const StatusCard = ({ label, count, active, onClick }: { label: string, count: string, active: boolean, onClick: () => void }) => (
+    <div 
+        onClick={onClick}
+        className={`
+            flex items-center justify-center gap-2 px-6 py-2 cursor-pointer border-t border-x rounded-t-sm min-w-[120px] transition-all
+            ${active 
+                ? 'bg-[#0b1730]/40 border-blue-500/30 text-neon-blue border-b-transparent z-10 shadow-[0_-2px_10px_rgba(0,210,255,0.1)]' 
+                : 'bg-[#091c33]/40 border-transparent text-gray-400 hover:text-gray-200 hover:bg-[#0b1730]/60 border-b border-blue-500/20'}
+        `}
+    >
+        <span className="text-sm font-medium">{label}</span>
+        <span className={`text-xs px-1.5 rounded-full ${active ? 'bg-blue-500/20 text-neon-blue' : 'bg-gray-700/50 text-gray-500'}`}>{count}</span>
+    </div>
+);
+
+const RightTab = ({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) => (
+    <button 
+        onClick={onClick}
+        className={`
+            px-3 py-1.5 text-xs font-medium rounded-sm whitespace-nowrap transition-colors
+            ${active ? 'bg-blue-600/30 text-white border border-blue-500/30' : 'text-blue-300 hover:text-white hover:bg-blue-600/10'}
+        `}
+    >
+        {label}
+    </button>
+);
+
+const InfoBox = ({ label, value, fullWidth }: { label: string, value: string, fullWidth?: boolean }) => (
+    <div className={`p-2 border border-blue-500/10 bg-[#094F8B]/[0.05] ${fullWidth ? 'col-span-2' : 'col-span-1'}`}>
+        <div className="text-[10px] text-blue-400 mb-0.5">{label}</div>
+        <div className="text-xs text-white truncate" title={value}>{value}</div>
+    </div>
+);
+
 // --- Types ---
 interface CallbackItem {
     id: string;
@@ -516,315 +589,66 @@ export const WorkbenchView: React.FC = () => {
                                             <InfoBox label="商品名称" value={item.productName} />
                                             <InfoBox label="地市" value={item.city} />
                                             <InfoBox label="客户名称" value={item.customerName} fullWidth />
-                                            <div className="p-2 border border-blue-500/20 bg-[#094F8B]/[0.03] flex items-center justify-between col-span-2">
-                                                <div className="flex items-center">
-                                                    <div className="text-[12px] text-white whitespace-nowrap mr-1">回访电话:</div>
-                                                    <div className="text-xs text-gray-200">{item.callbackPhone}</div>
-                                                </div>
-                                                {rightPanelSubTab === 'pending' ? (
-                                                    <button 
-                                                        onClick={() => handleOpenCallbackModal(item.id)}
-                                                        className="text-neon-blue underline text-xs hover:text-white"
-                                                    >
-                                                        回访结果录入
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-green-400 text-xs flex items-center gap-1">
-                                                        <CheckCircleIcon /> 已回访
-                                                    </span>
-                                                )}
+                                            <div className="p-2 border border-blue-500/10 bg-[#094F8B]/[0.05] col-span-2 flex justify-end items-center gap-2">
+                                                <span className="text-xs text-blue-300 mr-auto">联系电话: {item.callbackPhone}</span>
+                                                <button 
+                                                    onClick={() => handleOpenCallbackModal(item.id)}
+                                                    className="px-3 py-1 text-xs bg-[#07596C] hover:bg-[#097c96] text-white rounded-sm border border-blue-500/30 transition-colors"
+                                                >
+                                                    {item.status === 'pending' ? '回访登记' : '查看详情'}
+                                                </button>
                                             </div>
                                         </div>
                                     )) : (
-                                        <div className="flex flex-col items-center justify-center h-40 text-gray-500 text-xs">
-                                            <span>暂无{rightPanelSubTab === 'pending' ? '待' : '已'}回访记录</span>
-                                        </div>
+                                        <div className="text-center text-gray-500 py-8 text-xs">暂无数据</div>
                                     )}
                                 </div>
-                            </div>
-
-                            <div className="h-10 px-4 flex items-center justify-center gap-6 border-t border-blue-500/20 bg-[#094F8B]/[0.03]">
-                                <button 
-                                    onClick={handleCompleteTask}
-                                    className="px-6 py-1.5 bg-[#07596C] text-white text-xs rounded hover:brightness-110 shadow-lg border border-[#00d2ff]/30 w-full"
-                                >
-                                    处理完成
-                                </button>
                             </div>
                         </>
                     )}
                 </div>
             </div>
-            
-            {/* Callback Result Entry Modal (Absolute positioning within WorkbenchView) */}
-            <CallbackResultModal 
-                isOpen={isCallbackModalOpen} 
-                onClose={() => setIsCallbackModalOpen(false)} 
-                onSave={handleSaveCallbackResult}
-            />
 
-            {/* Validation Alert Modal */}
-            {validationAlert.show && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] animate-[fadeIn_0.2s_ease-out]">
-                    <div className="w-[300px] bg-[#0c2242] border border-blue-500/30 text-white shadow-[0_0_30px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden">
-                        <div className="p-6 text-center text-sm">
-                            {validationAlert.message}
+            {/* --- Callback Modal --- */}
+            {isCallbackModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
+                    <div className="w-[400px] bg-[#0f172a] border border-blue-500/30 text-blue-100 shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col animate-[fadeIn_0.2s_ease-out]">
+                        <div className="flex items-center justify-between px-4 py-2 bg-[#1e293b]/50 border-b border-blue-500/30">
+                            <span className="text-sm font-bold text-white">回访登记</span>
+                            <button onClick={() => setIsCallbackModalOpen(false)} className="text-gray-400 hover:text-white"><XIcon /></button>
                         </div>
-                        <div className="flex justify-center p-3 border-t border-blue-500/20 bg-[#0b1730]/50">
-                            <button 
-                                onClick={() => setValidationAlert({ ...validationAlert, show: false })}
-                                className="px-6 py-1.5 bg-[#07596C] text-white text-xs rounded hover:brightness-110"
-                            >
-                                确定
-                            </button>
+                        <div className="p-4 space-y-4">
+                            <div>
+                                <label className="block text-xs text-blue-300 mb-1">回访结果</label>
+                                <select className="w-full bg-[#0b1730]/20 border border-blue-500/30 text-white text-xs p-2 rounded focus:outline-none focus:border-neon-blue">
+                                    <option>成功联系，满意</option>
+                                    <option>成功联系，一般</option>
+                                    <option>成功联系，不满意</option>
+                                    <option>无人接听</option>
+                                    <option>号码错误</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs text-blue-300 mb-1">备注说明</label>
+                                <textarea className="w-full h-20 bg-[#0b1730]/20 border border-blue-500/30 text-white text-xs p-2 rounded focus:outline-none focus:border-neon-blue resize-none"></textarea>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 p-4 border-t border-blue-500/30 bg-[#1e293b]/30">
+                            <button onClick={() => setIsCallbackModalOpen(false)} className="px-3 py-1.5 text-xs text-gray-300 hover:text-white border border-transparent hover:border-gray-500 rounded">取消</button>
+                            <button onClick={() => handleSaveCallbackResult({})} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded shadow-sm">保存</button>
                         </div>
                     </div>
+                </div>
+            )}
+            
+            {/* Alert Toast */}
+            {validationAlert.show && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[200] px-6 py-3 bg-blue-900/90 border border-blue-500/50 text-white rounded shadow-lg flex items-center gap-3 animate-[fadeIn_0.3s_ease-out]">
+                    <span className="text-neon-blue"><CheckCircleIcon /></span>
+                    <span className="text-sm">{validationAlert.message}</span>
+                    <button onClick={() => setValidationAlert({show: false, message: ''})} className="text-gray-400 hover:text-white ml-2"><XIcon /></button>
                 </div>
             )}
         </div>
     );
 };
-
-// --- Helper Components ---
-
-const CallbackResultModal = ({ isOpen, onClose, onSave }: { isOpen: boolean, onClose: () => void, onSave: (data: any) => void }) => {
-    const [result, setResult] = useState('成功');
-    const [satisfaction, setSatisfaction] = useState('');
-    const [reason, setReason] = useState('');
-    const [needVisit, setNeedVisit] = useState('');
-
-    // Reset form when opened
-    useEffect(() => {
-        if (isOpen) {
-            setResult('成功');
-            setSatisfaction('');
-            setReason('');
-            setNeedVisit('');
-        }
-    }, [isOpen]);
-
-    const handleSaveClick = () => {
-        // Validation check
-        if (result === '成功') {
-            if (!satisfaction) { alert("请选择满意度"); return; }
-            if (satisfaction !== '10' && !reason) { alert("请填写不满意原因"); return; }
-            if (!needVisit) { alert("请选择是否需要上门"); return; }
-            // Assuming "Recording" is always available/handled for mock purposes, skipping check or adding dummy check
-        }
-        
-        onSave({ result, satisfaction, reason, needVisit });
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-[1px]">
-            <div className="w-[500px] bg-[#0f172a] border border-blue-500/30 text-blue-100 font-sans shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col">
-                <div className="flex items-center justify-between px-6 py-3 bg-[#0c2242] border-b border-blue-500/30">
-                    <span className="text-base font-bold text-white tracking-wide whitespace-nowrap">回访结果录入</span>
-                    <button onClick={onClose} className="text-blue-400 hover:text-white transition-colors"><XIcon /></button>
-                </div>
-                
-                <div className="p-6 space-y-5">
-                    {/* Call Result */}
-                    <div className="flex items-center gap-4">
-                        <label className="text-sm text-blue-300 w-24 text-right whitespace-nowrap">
-                            <span className="text-red-500 mr-1">*</span>外呼结果：
-                        </label>
-                        <div className="flex gap-4">
-                            {['成功', '关机', '拒接'].map(r => (
-                                <label key={r} className="flex items-center gap-1 cursor-pointer">
-                                    <input 
-                                        type="radio" 
-                                        name="result" 
-                                        value={r} 
-                                        checked={result === r} 
-                                        onChange={(e) => setResult(e.target.value)}
-                                        className="accent-neon-blue" 
-                                    />
-                                    <span className="text-sm">{r}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {result === '成功' && (
-                        <>
-                            {/* Satisfaction Score */}
-                            <div className="flex items-start gap-4">
-                                <label className="text-sm text-blue-300 w-24 text-right mt-1 whitespace-nowrap">
-                                    <span className="text-red-500 mr-1">*</span>是否满意：
-                                </label>
-                                <div className="flex flex-wrap gap-2 flex-1">
-                                    {Array.from({ length: 10 }).map((_, i) => {
-                                        const score = (i + 1).toString();
-                                        return (
-                                            <label key={score} className={`
-                                                flex items-center justify-center w-8 h-8 rounded border cursor-pointer text-xs transition-all
-                                                ${satisfaction === score 
-                                                    ? 'bg-neon-blue text-white border-neon-blue font-bold shadow-md' 
-                                                    : 'bg-[#0b1730] border-blue-500/30 text-gray-300 hover:border-blue-400'}
-                                            `}>
-                                                <input 
-                                                    type="radio" 
-                                                    name="satisfaction" 
-                                                    value={score} 
-                                                    checked={satisfaction === score} 
-                                                    onChange={(e) => setSatisfaction(e.target.value)}
-                                                    className="hidden" 
-                                                />
-                                                {score}
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Reason - Only if NOT 10 */}
-                            {satisfaction !== '10' && (
-                                <div className="flex items-start gap-4">
-                                    <label className="text-sm text-blue-300 w-24 text-right mt-1 whitespace-nowrap">
-                                        <span className="text-red-500 mr-1">*</span>不满意原因：
-                                    </label>
-                                    <textarea 
-                                        className="flex-1 bg-[#0b1730] border border-blue-500/30 text-white text-sm p-2 h-20 resize-none focus:outline-none focus:border-neon-blue"
-                                        value={reason}
-                                        onChange={(e) => setReason(e.target.value)}
-                                        placeholder="请输入不满意原因..."
-                                    />
-                                </div>
-                            )}
-
-                            {/* Need Visit */}
-                            <div className="flex items-center gap-4">
-                                <label className="text-sm text-blue-300 w-24 text-right whitespace-nowrap">
-                                    <span className="text-red-500 mr-1">*</span>是否需要上门：
-                                </label>
-                                <div className="flex gap-4">
-                                    {['是', '否'].map(opt => (
-                                        <label key={opt} className="flex items-center gap-1 cursor-pointer">
-                                            <input 
-                                                type="radio" 
-                                                name="visit" 
-                                                value={opt} 
-                                                checked={needVisit === opt} 
-                                                onChange={(e) => setNeedVisit(e.target.value)}
-                                                className="accent-neon-blue" 
-                                            />
-                                            <span className="text-sm">{opt}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Upload Recording */}
-                            <div className="flex items-center gap-4">
-                                <label className="text-sm text-blue-300 w-24 text-right whitespace-nowrap">
-                                    <span className="text-red-500 mr-1">*</span>回访录音：
-                                </label>
-                                <div className="flex-1">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-dashed border-gray-500 rounded bg-[#0b1730] cursor-pointer hover:border-blue-400 hover:text-blue-300 transition-colors">
-                                        <CloudUploadIconOriginal />
-                                        <span className="text-xs">点击上传录音文件</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-end gap-3 px-6 py-3 bg-[#0c2242] border-t border-blue-500/30">
-                    <button onClick={onClose} className="px-4 py-1.5 border border-gray-500 text-gray-300 text-sm rounded hover:bg-white/5">取消</button>
-                    <button onClick={handleSaveClick} className="px-4 py-1.5 bg-[#07596C] text-white text-sm rounded hover:brightness-110">保存</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const MenuItem = ({ label, count, active, collapsed }: { label: string, count: number, active: boolean, collapsed: boolean }) => (
-    <div 
-        className={`
-            flex items-center cursor-pointer transition-all duration-200 relative
-            ${collapsed 
-                ? 'justify-center w-full py-3 bg-[#112240]/40 border border-blue-500/20 hover:border-blue-500/40 hover:bg-[#1e3a5f]/40' 
-                : `justify-between px-3 py-3 bg-[#112240]/40 border border-blue-500/20 hover:border-blue-500/40 hover:bg-[#1e3a5f]/40 ${active ? 'border-l-2 border-l-neon-blue bg-[#1e3a5f]/60' : 'text-gray-400'}`
-            }
-        `} 
-        title={collapsed ? label : ''}
-    >
-        {collapsed ? (
-             <div className="flex items-center gap-1">
-                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-[10px]">
-                     {count > 0 ? count : 0}
-                 </span>
-                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500"><polyline points="9 18 15 12 9 6"/></svg>
-             </div>
-        ) : (
-            <>
-                <span className="text-sm font-medium text-gray-200">{label}</span>
-                <div className="flex items-center gap-2">
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${count > 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700/50 text-gray-500'}`}>{count}</span>
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor"><path d="M1 1L5 5L9 1" strokeWidth="1.5"/></svg>
-                </div>
-            </>
-        )}
-    </div>
-);
-
-const SubMenuItem = ({ label, count, active }: { label: string, count: number, active?: boolean }) => (
-    <div className={`flex items-center justify-between px-8 py-2 cursor-pointer hover:bg-[#1e3a5f]/30 hover:text-white transition-colors ${active ? 'text-neon-blue' : 'text-gray-400'}`}>
-        <span className="text-xs">{label}</span>
-        <span className={`text-xs px-1.5 py-0.5 rounded-full ${count > 0 || active ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-800 text-gray-500'}`}>{count}</span>
-    </div>
-);
-
-const StatusCard = ({ label, count, active, onClick }: { label: string, count: string, active: boolean, onClick: () => void }) => (
-    <div 
-        onClick={onClick}
-        className={`
-            relative flex items-center justify-center h-[30px] cursor-pointer transition-all duration-300 min-w-[100px] px-2 overflow-hidden
-            ${active 
-                ? 'z-10' 
-                : 'border-t border-x border-blue-500/30 border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-[#094F8B]/[0.05]'}
-        `}
-    >
-        {active && (
-            <>
-                {/* Background Gradient - Top down fade */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
-                
-                {/* Top Highlight Line with Glow */}
-                <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
-                
-                {/* Left Gradient Line - Top to Bottom fade */}
-                <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                
-                {/* Right Gradient Line - Top to Bottom fade */}
-                <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                
-                {/* Bottom Glow Effect - Upward fade */}
-                <div className="absolute bottom-0 left-0 right-0 h-[10px] bg-gradient-to-t from-[#00d2ff]/30 to-transparent pointer-events-none" />
-            </>
-        )}
-        
-        <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap ${active ? 'text-white font-bold' : 'text-gray-300'}`}>{label}</span>
-        <span className={`relative z-10 ml-3 px-2 py-0.5 text-[10px] rounded-full shadow-sm ${active ? 'bg-[#ef4444] text-white' : 'bg-[#ef4444]/80 text-gray-200'}`}>{count}</span>
-    </div>
-);
-
-const RightTab = ({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) => (
-    <button 
-        onClick={onClick}
-        className={`flex-1 py-1.5 px-2 text-xs text-center rounded border transition-all duration-200 whitespace-nowrap ${active ? 'text-white border-[#007acc] bg-[#007acc]/40 shadow-[0_0_10px_rgba(0,122,204,0.3)]' : 'text-gray-400 border-blue-500/20 bg-[#112240]/40 hover:text-white hover:bg-[#1e3a5f]/60'}`}
-    >
-        {label}
-    </button>
-);
-
-const InfoBox = ({ label, value, fullWidth = false }: { label: string, value: string, fullWidth?: boolean }) => (
-    <div className={`p-2 border border-blue-500/20 bg-[#094F8B]/[0.03] ${fullWidth ? 'col-span-2' : ''} flex items-center`}>
-        <div className="text-[12px] text-white whitespace-nowrap mr-1">{label}:</div>
-        <div className="text-xs text-gray-200 truncate" title={value}>{value}</div>
-    </div>
-);
