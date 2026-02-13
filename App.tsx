@@ -861,6 +861,87 @@ You help users query data, analyze alarms, manage tickets, and providing insight
                     </StyledSelect>
                 )}
 
+                {/* --- Added Filters Logic --- */}
+                
+                {/* 1. Pending: Business Type, Fault Type */}
+                {isPending && (
+                    <>
+                        <StyledSelect
+                            className="w-32"
+                            value={currentFilters.productType || ''}
+                            onChange={(e) => setFilters({...currentFilters, productType: e.target.value})}
+                        >
+                            <option value="">业务类型</option>
+                            {BUSINESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </StyledSelect>
+                        <StyledSelect
+                            className="w-32"
+                            value={currentFilters.faultType || ''}
+                            onChange={(e) => setFilters({...currentFilters, faultType: e.target.value})}
+                        >
+                            <option value="">故障类型</option>
+                            {DEFAULT_FAULT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </StyledSelect>
+                    </>
+                )}
+
+                {/* Shared Logic for Todo, Done, All: Category & Conditional Type */}
+                {(isTodo || isDone || isAll) && (
+                    <>
+                        {isAll && (
+                            <StyledSelect 
+                                className="w-32" 
+                                value={currentFilters.stage || ''} 
+                                onChange={(e) => setFilters({...currentFilters, stage: e.target.value})}
+                            >
+                                <option value="">全部状态</option>
+                                <option value="待受理">待受理</option>
+                                <option value="处理中">处理中</option>
+                                <option value="待质检">待质检</option>
+                                <option value="已归档">已归档</option>
+                            </StyledSelect>
+                        )}
+                        <StyledSelect
+                            className="w-32"
+                            value={currentFilters.businessCategory || ''}
+                            onChange={(e) => setFilters({...currentFilters, businessCategory: e.target.value, productType: ''})}
+                        >
+                            <option value="">业务分类</option>
+                            {BUSINESS_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </StyledSelect>
+                        {currentFilters.businessCategory === '专线' && (
+                            <StyledSelect
+                                className="w-32"
+                                value={currentFilters.productType || ''}
+                                onChange={(e) => setFilters({...currentFilters, productType: e.target.value})}
+                            >
+                                <option value="">业务类型</option>
+                                {BUSINESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </StyledSelect>
+                        )}
+                    </>
+                )}
+
+                {/* 4. All: Dispatch Time Range */}
+                {isAll && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-blue-300 whitespace-nowrap">派单时间:</span>
+                        <StyledInput
+                            type="date"
+                            className="w-32"
+                            value={currentFilters.startDate || ''}
+                            onChange={(e) => setFilters({...currentFilters, startDate: e.target.value})}
+                        />
+                        <span className="text-blue-400">-</span>
+                        <StyledInput
+                            type="date"
+                            className="w-32"
+                            value={currentFilters.endDate || ''}
+                            onChange={(e) => setFilters({...currentFilters, endDate: e.target.value})}
+                        />
+                    </div>
+                )}
+
                 {/* ... Selects based on type ... */}
                 <div className="flex items-center gap-3">
                     <StyledButton variant="toolbar" onClick={handleSearch} icon={<SearchIcon />} className="whitespace-nowrap">查询</StyledButton>

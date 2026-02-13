@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { MOCK_GROUP_ORDER_DATA } from '../constants';
+import { MOCK_GROUP_ORDER_DATA, INNER_MONGOLIA_CITIES } from '../constants';
 import { StyledInput, StyledButton, StyledSelect } from './UI';
 import { 
     SearchIcon, 
@@ -9,7 +9,7 @@ import {
     ChevronLeftIcon, 
     ChevronRightIcon, 
     SidebarCloseIcon, 
-    SidebarOpenIcon,
+    SidebarOpenIcon, 
     FolderIcon,
     ListIcon,
     UserIcon,
@@ -42,15 +42,26 @@ const getGroupOrderId = (index: number) => `BN-${new Date().getFullYear()}0210-$
 
 // Mock Data for Managers
 const MOCK_MANAGERS = [
-    { id: 1, name: '张宏伟', phone: '13947180001', level: '省级', region: '内蒙古自治区' },
-    { id: 2, name: '赵铁柱', phone: '13800138000', level: '省级', region: '内蒙古自治区' },
-    { id: 3, name: '王坤鹏', phone: '15004820003', level: '地市级', region: '呼和浩特市' },
-    { id: 4, name: '刘伟', phone: '18447180004', level: '地市级', region: '呼和浩特市' },
-    { id: 5, name: '孙八', phone: '13600000005', level: '地市级', region: '包头市' },
-    { id: 6, name: '王晓强', phone: '19804890007', level: '旗县级', region: '赛罕区' },
-    { id: 7, name: '张彦飞', phone: '18747740008', level: '旗县级', region: '赛罕区' },
-    { id: 8, name: '李明', phone: '15800000011', level: '网格级', region: '大学西路网格' },
+    { id: 1, name: '张宏伟', phone: '13947180001', level: '省级', city: '呼和浩特市', county: '赛罕区', grid: '大学西路网格', company: '铁通公司' },
+    { id: 2, name: '赵铁柱', phone: '13800138000', level: '省级', city: '包头市', county: '昆区', grid: '阿尔丁大街网格', company: '中移铁通' },
+    { id: 3, name: '王坤鹏', phone: '15004820003', level: '地市级', city: '呼和浩特市', county: '新城区', grid: '成吉思汗大街网格', company: '润建通信' },
+    { id: 4, name: '刘伟', phone: '18447180004', level: '地市级', city: '呼和浩特市', county: '回民区', grid: '中山西路网格', company: '中移工程' },
+    { id: 5, name: '孙八', phone: '13600000005', level: '地市级', city: '包头市', county: '青山区', grid: '科学路网格', company: '立通通信' },
+    { id: 6, name: '王晓强', phone: '19804890007', level: '旗县级', city: '呼和浩特市', county: '赛罕区', grid: '人民路网格', company: '铁通公司' },
+    { id: 7, name: '张彦飞', phone: '18747740008', level: '旗县级', city: '呼和浩特市', county: '赛罕区', grid: '大学东路网格', company: '润建通信' },
+    { id: 8, name: '李明', phone: '15800000011', level: '网格级', city: '呼和浩特市', county: '赛罕区', grid: '大学西路网格', company: '铁通公司' },
+    { id: 9, name: '武楠', phone: '13500000012', level: '网格级', city: '呼和浩特市', county: '新城区', grid: '海拉尔东路网格', company: '中移铁通' },
+    { id: 10, name: '赵六', phone: '13400000013', level: '网格级', city: '包头市', county: '昆区', grid: '钢铁大街网格', company: '立通通信' },
 ];
+
+const CASCADING_COUNTIES: Record<string, string[]> = {
+    '呼和浩特市': ['赛罕区', '新城区', '回民区', '玉泉区', '土默特左旗', '托克托县'],
+    '包头市': ['昆都仑区', '东河区', '青山区', '九原区', '土默特右旗', '固阳县'],
+    '鄂尔多斯市': ['东胜区', '康巴什区', '达拉特旗', '准格尔旗'],
+    '赤峰市': ['红山区', '松山区', '元宝山区', '阿鲁科尔沁旗'],
+    '通辽市': ['科尔沁区', '开鲁县'],
+    'default': ['市辖区', '某某县']
+};
 
 export interface TabItem {
     id: string;
@@ -70,6 +81,11 @@ export interface GroupOrderViewState {
     orderData: any[];
     managerData: any[];
     managerKeyword: string;
+    managerFilters: {
+        level: string;
+        city: string;
+        county: string;
+    };
     orderFilters: {
         keyword: string;
         status: string;
@@ -100,6 +116,7 @@ export const getInitialGroupOrderState = (): GroupOrderViewState => ({
     })),
     managerData: MOCK_MANAGERS,
     managerKeyword: '',
+    managerFilters: { level: '', city: '', county: '' },
     orderFilters: { keyword: '', status: '', level: '', startDate: '', endDate: '' },
     taskFilters: { keyword: '', status: '', startDate: '', endDate: '' },
     pagination: { currentPage: 1, pageSize: 15 }
@@ -133,12 +150,28 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         orderData, 
         managerData,
         managerKeyword, 
+        managerFilters,
         orderFilters, 
         taskFilters, 
         pagination 
     } = viewState;
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
+    
+    // Modal States
+    const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
+    const [editingManagerId, setEditingManagerId] = useState<number | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+    const [newManagerForm, setNewManagerForm] = useState({
+        name: '',
+        phone: '',
+        level: '',
+        city: '',
+        county: '',
+        grid: '',
+        company: ''
+    });
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -156,7 +189,9 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     const setIsSidebarCollapsed = (val: any) => setViewState(prev => ({ ...prev, isSidebarCollapsed: typeof val === 'function' ? val(prev.isSidebarCollapsed) : val }));
     const setTargetOrderId = (val: any) => setViewState(prev => ({ ...prev, targetOrderId: typeof val === 'function' ? val(prev.targetOrderId) : val }));
     const setOrderData = (val: any) => setViewState(prev => ({ ...prev, orderData: typeof val === 'function' ? val(prev.orderData) : val }));
+    const setManagerData = (val: any) => setViewState(prev => ({ ...prev, managerData: typeof val === 'function' ? val(prev.managerData) : val }));
     const setManagerKeyword = (val: any) => setViewState(prev => ({ ...prev, managerKeyword: typeof val === 'function' ? val(prev.managerKeyword) : val }));
+    const setManagerFilters = (val: any) => setViewState(prev => ({ ...prev, managerFilters: typeof val === 'function' ? val(prev.managerFilters) : val }));
     const setOrderFilters = (val: any) => setViewState(prev => ({ ...prev, orderFilters: typeof val === 'function' ? val(prev.orderFilters) : val }));
     const setTaskFilters = (val: any) => setViewState(prev => ({ ...prev, taskFilters: typeof val === 'function' ? val(prev.taskFilters) : val }));
     const setPagination = (val: any) => setViewState(prev => ({ ...prev, pagination: typeof val === 'function' ? val(prev.pagination) : val }));
@@ -170,7 +205,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
         setViewState(prev => {
             const exists = prev.tabs.find(t => t.id === module);
-            const newTabs = exists ? prev.tabs : [...prev.tabs, { id: module, label: labels[module], type: 'module' }];
+            const newTabs = exists ? prev.tabs : [...prev.tabs, { id: module, label: labels[module], type: 'module' as const }];
             return {
                 ...prev,
                 tabs: newTabs,
@@ -234,7 +269,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             const exists = prev.tabs.find(t => t.id === tabId);
             const newTabs = exists 
                 ? prev.tabs.map(t => t.id === tabId ? { ...t, initialTab: targetTab, triggerTimestamp: timestamp } : t)
-                : [...prev.tabs, { id: tabId, label: '团单详情', type: 'detail', initialTab: targetTab, triggerTimestamp: timestamp }];
+                : [...prev.tabs, { id: tabId, label: '团单详情', type: 'detail' as const, initialTab: targetTab, triggerTimestamp: timestamp }];
             
             return {
                 ...prev,
@@ -263,7 +298,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             const exists = prev.tabs.find(t => t.id === tabId);
             const newTabs = exists
                 ? prev.tabs.map(t => t.id === tabId ? { ...t, initialTab: targetTab, triggerTimestamp: timestamp } : t)
-                : [...prev.tabs, { id: tabId, label: '团单任务详情', type: 'task-detail', initialTab: targetTab, triggerTimestamp: timestamp }];
+                : [...prev.tabs, { id: tabId, label: '团单任务详情', type: 'task-detail' as const, initialTab: targetTab, triggerTimestamp: timestamp }];
 
             return {
                 ...prev,
@@ -284,6 +319,87 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         setOrderData((prev: any[]) => prev.map((item: any) => 
             item.id === id ? { ...item, isImportant: !item.isImportant } : item
         ));
+    };
+
+    // Manager Edit/Delete Actions
+    const handleEditManager = (manager: any) => {
+        setNewManagerForm({
+            name: manager.name,
+            phone: manager.phone,
+            level: manager.level,
+            city: manager.city,
+            county: manager.county,
+            grid: manager.grid,
+            company: manager.company
+        });
+        setEditingManagerId(manager.id);
+        setIsManagerModalOpen(true);
+    };
+
+    const handleDeleteManager = (id: number) => {
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDeleteManager = () => {
+        if (deleteConfirmId) {
+            setManagerData((prev: any[]) => prev.filter(m => m.id !== deleteConfirmId));
+            setDeleteConfirmId(null);
+        }
+    };
+
+    // Add/Edit Manager Submit Handler
+    const handleManagerSave = () => {
+        const { name, phone, level, city, county, grid, company } = newManagerForm;
+        const errors = [];
+
+        if (!name) errors.push('姓名');
+        if (!phone) errors.push('电话');
+        if (!level) errors.push('级别');
+
+        if (level === '地市级') {
+            if (!city) errors.push('地市');
+        } else if (level === '旗县级') {
+            if (!city) errors.push('地市');
+            if (!county) errors.push('旗县');
+        } else if (level === '网格级') {
+            if (!city) errors.push('地市');
+            if (!county) errors.push('旗县');
+            if (!grid) errors.push('网格');
+            if (!company) errors.push('代维公司');
+        }
+
+        if (errors.length > 0) {
+            alert(`请完善必填信息：${errors.join('、')}`);
+            return;
+        }
+        
+        if (editingManagerId) {
+            // Update existing
+            setManagerData((prev: any[]) => prev.map(m => m.id === editingManagerId ? { ...m, ...newManagerForm } : m));
+        } else {
+            // Add new
+            const newManager = {
+                id: Date.now(),
+                ...newManagerForm
+            };
+            setManagerData((prev: any[]) => [newManager, ...prev]);
+        }
+        
+        closeManagerModal();
+    };
+
+    const closeManagerModal = () => {
+        setIsManagerModalOpen(false);
+        setEditingManagerId(null);
+        setNewManagerForm({
+            name: '',
+            phone: '',
+            level: '',
+            city: '',
+            county: '',
+            grid: '',
+            company: ''
+        });
     };
 
     // Filter & Sort Logic for Orders
@@ -355,8 +471,20 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
     // Filter Logic for Managers
     const filteredManagerData = useMemo(() => {
-        return managerData.filter((m: any) => !managerKeyword || m.name.includes(managerKeyword) || m.phone.includes(managerKeyword) || m.region.includes(managerKeyword));
-    }, [managerData, managerKeyword]);
+        return managerData.filter((m: any) => {
+            const matchKeyword = !managerKeyword || 
+                m.name.includes(managerKeyword) || 
+                m.phone.includes(managerKeyword) || 
+                (m.grid && m.grid.includes(managerKeyword)) ||
+                (m.company && m.company.includes(managerKeyword));
+            
+            const matchLevel = !managerFilters.level || m.level === managerFilters.level;
+            const matchCity = !managerFilters.city || m.city === managerFilters.city;
+            const matchCounty = !managerFilters.county || m.county === managerFilters.county;
+
+            return matchKeyword && matchLevel && matchCity && matchCounty;
+        });
+    }, [managerData, managerKeyword, managerFilters]);
 
     // Calculate Active Counts (excluding Completed and Cancelled)
     const activeOrderCount = useMemo(() => orderData.filter(o => o.status !== '已完成' && o.status !== '撤单').length, [orderData]);
@@ -423,8 +551,12 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     // Helper to get tab specific props
     const getActiveTabProps = () => {
         const tab = tabs.find(t => t.id === activeTabId);
-        return tab || {};
+        return tab;
     };
+
+    const isLevelCity = ['地市级', '旗县级', '网格级'].includes(newManagerForm.level);
+    const isLevelCounty = ['旗县级', '网格级'].includes(newManagerForm.level);
+    const isLevelGrid = newManagerForm.level === '网格级';
 
     return (
         <div className="flex h-full w-full bg-transparent overflow-hidden relative">
@@ -477,7 +609,6 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                         <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
                                         <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
                                         <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                                        {/* Bottom glow removed as requested */}
                                     </>
                                 )}
                                 <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
@@ -500,8 +631,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                             <GroupOrderDetailView 
                                 order={detailRecords[activeTabId]} 
                                 onBack={() => handleCloseTab(null, activeTabId)}
-                                initialTab={getActiveTabProps().initialTab}
-                                triggerTimestamp={getActiveTabProps().triggerTimestamp}
+                                initialTab={getActiveTabProps()?.initialTab}
+                                triggerTimestamp={getActiveTabProps()?.triggerTimestamp}
                                 onTabChange={(tab) => handleDetailTabChange(activeTabId, tab)}
                             />
                         </div>
@@ -511,8 +642,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                             <GroupOrderTaskDetailView 
                                 task={taskDetailRecords[activeTabId]} 
                                 onBack={() => handleCloseTab(null, activeTabId)}
-                                initialTab={getActiveTabProps().initialTab}
-                                triggerTimestamp={getActiveTabProps().triggerTimestamp}
+                                initialTab={getActiveTabProps()?.initialTab}
+                                triggerTimestamp={getActiveTabProps()?.triggerTimestamp}
                                 onTabChange={(tab) => handleDetailTabChange(activeTabId, tab)}
                             />
                         </div>
@@ -577,6 +708,10 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 onChange={(e) => setOrderFilters({...orderFilters, endDate: e.target.value})}
                                             />
                                         </div>
+                                        <div className="flex items-center gap-3 ml-auto">
+                                            <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
+                                            <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => setOrderFilters({ keyword: '', status: '', level: '', startDate: '', endDate: '' })} icon={<RefreshCwIcon />}>重置</StyledButton>
+                                        </div>
                                     </>
                                 )} 
                                 
@@ -620,34 +755,70 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 onChange={(e) => setTaskFilters({...taskFilters, endDate: e.target.value})}
                                             />
                                         </div>
+                                        <div className="flex items-center gap-3 ml-auto">
+                                            <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
+                                            <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => { setTaskFilters({ keyword: '', status: '', startDate: '', endDate: '' }); setTargetOrderId(null); }} icon={<RefreshCwIcon />}>重置</StyledButton>
+                                        </div>
                                     </>
                                 )}
 
                                 {activeTabId === 'config' && (
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-blue-200">关键字</label>
-                                        <StyledInput 
-                                            placeholder="请输入姓名/手机号/区域" 
-                                            className="w-80 bg-[#0b1730]/50" 
-                                            value={managerKeyword}
-                                            onChange={(e) => setManagerKeyword(e.target.value)}
-                                        />
-                                        <StyledButton variant="toolbar" className="bg-[#07596C] border-[#5FBADD]" icon={<PlusCircleIcon />}>新增经理</StyledButton>
-                                    </div>
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">交付经理级别</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50"
+                                                value={managerFilters.level}
+                                                onChange={(e) => setManagerFilters({...managerFilters, level: e.target.value})}
+                                            >
+                                                <option value="">请选择</option>
+                                                <option value="省级">省级</option>
+                                                <option value="地市级">地市级</option>
+                                                <option value="旗县级">旗县级</option>
+                                                <option value="网格级">网格级</option>
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">地市</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50"
+                                                value={managerFilters.city}
+                                                onChange={(e) => setManagerFilters({...managerFilters, city: e.target.value, county: ''})}
+                                            >
+                                                <option value="">请选择</option>
+                                                {INNER_MONGOLIA_CITIES.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">区县</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50"
+                                                value={managerFilters.county}
+                                                onChange={(e) => setManagerFilters({...managerFilters, county: e.target.value})}
+                                                disabled={!managerFilters.city}
+                                            >
+                                                <option value="">请选择</option>
+                                                {(managerFilters.city && CASCADING_COUNTIES[managerFilters.city] ? CASCADING_COUNTIES[managerFilters.city] : CASCADING_COUNTIES['default']).map(c => (
+                                                    <option key={c} value={c}>{c}</option>
+                                                ))}
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">关键字</label>
+                                            <StyledInput 
+                                                placeholder="请输入姓名/电话/网格名称/代维公司名称" 
+                                                className="w-80 bg-[#0b1730]/50" 
+                                                value={managerKeyword}
+                                                onChange={(e) => setManagerKeyword(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-3 ml-4">
+                                            <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
+                                            <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => { setManagerKeyword(''); setManagerFilters({ level: '', city: '', county: '' }); }} icon={<RefreshCwIcon />}>重置</StyledButton>
+                                            <StyledButton variant="toolbar" className="bg-[#07596C] border-[#5FBADD]" icon={<PlusCircleIcon />} onClick={() => setIsManagerModalOpen(true)}>添加交付经理</StyledButton>
+                                        </div>
+                                    </>
                                 )}
-                                
-                                <div className="flex items-center gap-3">
-                                    <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
-                                    <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => {
-                                        if (activeTabId === 'order') setOrderFilters({ keyword: '', status: '', level: '', startDate: '', endDate: '' });
-                                        else if (activeTabId === 'task') {
-                                            setTaskFilters({ keyword: '', status: '', startDate: '', endDate: '' });
-                                            setTargetOrderId(null);
-                                        } else {
-                                            setManagerKeyword('');
-                                        }
-                                    }} icon={<RefreshCwIcon />}>重置</StyledButton>
-                                </div>
                             </div>
 
                             {/* Table Area */}
@@ -690,10 +861,13 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                         )}
                                         {activeTabId === 'config' && (
                                             <tr>
-                                                <Th>姓名</Th>
-                                                <Th>联系电话</Th>
-                                                <Th>管理层级</Th>
-                                                <Th>负责区域</Th>
+                                                <Th>交付经理级别</Th>
+                                                <Th>交付经理姓名</Th>
+                                                <Th>交付经理电话</Th>
+                                                <Th>地市</Th>
+                                                <Th>旗县</Th>
+                                                <Th>网格</Th>
+                                                <Th>代维公司</Th>
                                                 <Th className="text-center sticky right-0 bg-[#0c2242] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th>
                                             </tr>
                                         )}
@@ -701,20 +875,30 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                     <tbody className="text-blue-100 text-sm">
                                         {activeTabId === 'config' ? (
                                             // Manager Table Body
-                                            paginatedData.length > 0 ? paginatedData.map((row: any, idx) => (
+                                            paginatedData.length > 0 ? paginatedData.map((row: any, idx) => {
+                                                // Display Logic based on level
+                                                const showCity = row.level === '地市级' || row.level === '旗县级' || row.level === '网格级';
+                                                const showCounty = row.level === '旗县级' || row.level === '网格级';
+                                                const showGrid = row.level === '网格级';
+                                                const showCompany = row.level === '网格级';
+
+                                                return (
                                                 <tr key={row.id} className={`hover:bg-[#1e3a5f]/40 transition-colors border-b border-blue-500/10 whitespace-nowrap ${idx % 2 === 1 ? 'bg-[#0c2242]/30' : ''}`}>
+                                                    <td className="p-3 border-b border-blue-500/10">{row.level}</td>
                                                     <td className="p-3 border-b border-blue-500/10">{row.name}</td>
                                                     <td className="p-3 border-b border-blue-500/10 font-mono text-gray-300">{row.phone}</td>
-                                                    <td className="p-3 border-b border-blue-500/10"><span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-500/30 text-xs">{row.level}</span></td>
-                                                    <td className="p-3 border-b border-blue-500/10">{row.region}</td>
+                                                    <td className="p-3 border-b border-blue-500/10">{showCity ? row.city : '-'}</td>
+                                                    <td className="p-3 border-b border-blue-500/10">{showCounty ? row.county : '-'}</td>
+                                                    <td className="p-3 border-b border-blue-500/10">{showGrid ? row.grid : '-'}</td>
+                                                    <td className="p-3 border-b border-blue-500/10">{showCompany ? row.company : '-'}</td>
                                                     <td className="p-3 text-center border-b border-blue-500/10 sticky right-0 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
                                                         <div className="flex items-center justify-center gap-2">
-                                                            <button className="text-blue-400 hover:text-white p-1" title="编辑"><EditIcon /></button>
-                                                            <button className="text-red-400 hover:text-red-300 p-1" title="删除"><TrashIcon /></button>
+                                                            <button className="text-blue-400 hover:text-white p-1" title="编辑" onClick={() => handleEditManager(row)}><EditIcon /></button>
+                                                            <button className="text-red-400 hover:text-red-300 p-1" title="删除" onClick={() => handleDeleteManager(row.id)}><TrashIcon /></button>
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            )) : <tr><td colSpan={5} className="p-8 text-center text-gray-500 border-b border-blue-500/10">暂无经理数据</td></tr>
+                                            )}) : <tr><td colSpan={8} className="p-8 text-center text-gray-500 border-b border-blue-500/10">暂无经理数据</td></tr>
                                         ) : (
                                             // Order/Task Table Body
                                             paginatedData.length > 0 ? (
@@ -856,6 +1040,121 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                     </select>
                                 </div>
                             </div>
+
+                            {/* Modals Scoped to Config Tab */}
+                            {activeTabId === 'config' && (
+                                <>
+                                    {/* Add/Edit Manager Modal */}
+                                    {isManagerModalOpen && (
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                                            <div className="w-[530px] bg-[#0f172a] border border-blue-500/30 text-blue-100 font-sans shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col">
+                                                <div className="flex items-center justify-between px-6 py-3 bg-[#0c2242] border-b border-blue-500/30">
+                                                    <span className="text-base font-bold text-white tracking-wide">{editingManagerId ? '编辑交付经理' : '添加交付经理'}</span>
+                                                    <button onClick={closeManagerModal} className="text-blue-400 hover:text-white transition-colors"><XIcon /></button>
+                                                </div>
+                                                <div className="p-6 space-y-4">
+                                                    {/* Row 1: Name and Phone */}
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[12px] text-blue-300">交付经理姓名 <span className="text-red-500">*</span></label>
+                                                            <StyledInput className="w-full" value={newManagerForm.name} onChange={(e) => setNewManagerForm({...newManagerForm, name: e.target.value})} />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[12px] text-blue-300">交付经理电话 <span className="text-red-500">*</span></label>
+                                                            <StyledInput className="w-full" value={newManagerForm.phone} onChange={(e) => setNewManagerForm({...newManagerForm, phone: e.target.value})} />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Row 2: Level (Full Width) */}
+                                                    <div className="space-y-1 w-full">
+                                                        <label className="text-[12px] text-blue-300">交付经理级别 <span className="text-red-500">*</span></label>
+                                                        <StyledSelect 
+                                                            className="w-full" 
+                                                            value={newManagerForm.level} 
+                                                            onChange={(e) => {
+                                                                const lvl = e.target.value;
+                                                                setNewManagerForm(prev => ({
+                                                                    ...prev, 
+                                                                    level: lvl,
+                                                                    city: ['省级'].includes(lvl) ? '' : prev.city,
+                                                                    county: ['省级', '地市级'].includes(lvl) ? '' : prev.county,
+                                                                    grid: lvl !== '网格级' ? '' : prev.grid,
+                                                                    company: lvl !== '网格级' ? '' : prev.company
+                                                                }));
+                                                            }}
+                                                        >
+                                                            <option value="">请选择</option>
+                                                            <option value="省级">省级</option>
+                                                            <option value="地市级">地市级</option>
+                                                            <option value="旗县级">旗县级</option>
+                                                            <option value="网格级">网格级</option>
+                                                        </StyledSelect>
+                                                    </div>
+                                                    
+                                                    {/* Conditional Rendering based on Level */}
+                                                    {['地市级', '旗县级', '网格级'].includes(newManagerForm.level) && (
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-1">
+                                                                <label className="text-[12px] text-blue-300">地市 <span className="text-red-500">*</span></label>
+                                                                <StyledSelect className="w-full" value={newManagerForm.city} onChange={(e) => setNewManagerForm({...newManagerForm, city: e.target.value, county: ''})}>
+                                                                    <option value="">请选择</option>
+                                                                    {INNER_MONGOLIA_CITIES.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
+                                                                </StyledSelect>
+                                                            </div>
+                                                            
+                                                            {['旗县级', '网格级'].includes(newManagerForm.level) && (
+                                                                <div className="space-y-1">
+                                                                    <label className="text-[12px] text-blue-300">旗县 <span className="text-red-500">*</span></label>
+                                                                    <StyledSelect className="w-full" value={newManagerForm.county} onChange={(e) => setNewManagerForm({...newManagerForm, county: e.target.value})} disabled={!newManagerForm.city}>
+                                                                        <option value="">请选择</option>
+                                                                        {(newManagerForm.city && CASCADING_COUNTIES[newManagerForm.city] ? CASCADING_COUNTIES[newManagerForm.city] : CASCADING_COUNTIES['default']).map(c => <option key={c} value={c}>{c}</option>)}
+                                                                    </StyledSelect>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {newManagerForm.level === '网格级' && (
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-1">
+                                                                <label className="text-[12px] text-blue-300">网格 <span className="text-red-500">*</span></label>
+                                                                <StyledInput className="w-full" value={newManagerForm.grid} onChange={(e) => setNewManagerForm({...newManagerForm, grid: e.target.value})} />
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <label className="text-[12px] text-blue-300">代维公司 <span className="text-red-500">*</span></label>
+                                                                <StyledInput className="w-full" value={newManagerForm.company} onChange={(e) => setNewManagerForm({...newManagerForm, company: e.target.value})} />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center justify-end gap-3 px-6 py-3 bg-[#0c2242] border-t border-blue-500/30">
+                                                    <StyledButton variant="secondary" onClick={closeManagerModal}>取消</StyledButton>
+                                                    <StyledButton variant="primary" onClick={handleManagerSave}>保存</StyledButton>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Delete Confirmation Modal */}
+                                    {deleteConfirmId && (
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[1px]">
+                                            <div className="w-[300px] bg-[#0f172a] border border-blue-500/30 text-blue-100 font-sans shadow-[0_0_30px_rgba(0,0,0,0.5)] rounded-sm">
+                                                <div className="p-6 text-center space-y-4">
+                                                    <div className="text-red-400 mx-auto w-10 h-10 flex items-center justify-center rounded-full bg-red-500/10 border border-red-500/30">
+                                                        <TrashIcon />
+                                                    </div>
+                                                    <h3 className="text-lg font-bold text-white">确认删除?</h3>
+                                                    <p className="text-xs text-blue-300">删除后该交付经理信息将无法恢复。</p>
+                                                </div>
+                                                <div className="flex items-center justify-center gap-3 p-4 border-t border-blue-500/20 bg-[#0c2242]/50">
+                                                    <StyledButton variant="secondary" onClick={() => setDeleteConfirmId(null)}>取消</StyledButton>
+                                                    <StyledButton variant="primary" className="bg-red-600 hover:bg-red-700 border-red-500" onClick={confirmDeleteManager}>确认删除</StyledButton>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </>
                     )}
                 </div>
