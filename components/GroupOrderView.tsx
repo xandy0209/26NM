@@ -1,0 +1,895 @@
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { MOCK_GROUP_ORDER_DATA } from '../constants';
+import { StyledInput, StyledButton, StyledSelect } from './UI';
+import { 
+    SearchIcon, 
+    RefreshCwIcon, 
+    DownloadIcon, 
+    ChevronLeftIcon, 
+    ChevronRightIcon, 
+    SidebarCloseIcon, 
+    SidebarOpenIcon,
+    FolderIcon,
+    ListIcon,
+    UserIcon,
+    PlusCircleIcon,
+    EditIcon,
+    TrashIcon,
+    XIcon
+} from './Icons';
+import { GroupOrderRecord } from '../types';
+import { GroupOrderDetailView } from './GroupOrderDetailView';
+import { GroupOrderTaskDetailView } from './GroupOrderTaskDetailView';
+
+// Star Icon for importance column
+const StarIcon = ({ filled, onClick }: { filled: boolean; onClick?: (e: React.MouseEvent) => void }) => (
+    <div onClick={onClick} className={`${onClick ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? "#fbbf24" : "none"} stroke={filled ? "#fbbf24" : "#94a3b8"} strokeWidth="1.5">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+    </div>
+);
+
+const Th = ({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
+  <th className={`p-3 font-semibold border-b border-blue-500/30 whitespace-nowrap text-sm bg-[#0c2242] text-blue-200 ${className}`} {...props}>
+    {children}
+  </th>
+);
+
+// Helper to generate Group Order ID
+const getGroupOrderId = (index: number) => `BN-${new Date().getFullYear()}0210-${(index + 1).toString().padStart(3, '0')}`;
+
+// Mock Data for Managers
+const MOCK_MANAGERS = [
+    { id: 1, name: '张宏伟', phone: '13947180001', level: '省级', region: '内蒙古自治区' },
+    { id: 2, name: '赵铁柱', phone: '13800138000', level: '省级', region: '内蒙古自治区' },
+    { id: 3, name: '王坤鹏', phone: '15004820003', level: '地市级', region: '呼和浩特市' },
+    { id: 4, name: '刘伟', phone: '18447180004', level: '地市级', region: '呼和浩特市' },
+    { id: 5, name: '孙八', phone: '13600000005', level: '地市级', region: '包头市' },
+    { id: 6, name: '王晓强', phone: '19804890007', level: '旗县级', region: '赛罕区' },
+    { id: 7, name: '张彦飞', phone: '18747740008', level: '旗县级', region: '赛罕区' },
+    { id: 8, name: '李明', phone: '15800000011', level: '网格级', region: '大学西路网格' },
+];
+
+export interface TabItem {
+    id: string;
+    label: string;
+    type?: 'module' | 'detail' | 'task-detail';
+    initialTab?: 'info' | 'flow' | 'process';
+    triggerTimestamp?: number; // Used to force refresh when clicking same item
+}
+
+export interface GroupOrderViewState {
+    tabs: TabItem[];
+    activeTabId: string;
+    detailRecords: Record<string, GroupOrderRecord>;
+    taskDetailRecords: Record<string, any>;
+    isSidebarCollapsed: boolean;
+    targetOrderId: string | null;
+    orderData: any[];
+    managerData: any[];
+    managerKeyword: string;
+    orderFilters: {
+        keyword: string;
+        status: string;
+        level: string;
+        startDate: string;
+        endDate: string;
+    };
+    taskFilters: {
+        keyword: string;
+        status: string;
+        startDate: string;
+        endDate: string;
+    };
+    pagination: { currentPage: number; pageSize: number; };
+}
+
+// Initial State Generator
+export const getInitialGroupOrderState = (): GroupOrderViewState => ({
+    tabs: [{ id: 'order', label: '团单信息管理', type: 'module' }],
+    activeTabId: 'order',
+    detailRecords: {},
+    taskDetailRecords: {},
+    isSidebarCollapsed: false,
+    targetOrderId: null,
+    orderData: MOCK_GROUP_ORDER_DATA.map((item, index) => ({
+        ...item,
+        groupOrderId: getGroupOrderId(index) 
+    })),
+    managerData: MOCK_MANAGERS,
+    managerKeyword: '',
+    orderFilters: { keyword: '', status: '', level: '', startDate: '', endDate: '' },
+    taskFilters: { keyword: '', status: '', startDate: '', endDate: '' },
+    pagination: { currentPage: 1, pageSize: 15 }
+});
+
+interface GroupOrderViewProps {
+    viewState: GroupOrderViewState;
+    setViewState: React.Dispatch<React.SetStateAction<GroupOrderViewState>>;
+    // Keeping old props for compatibility if needed, though mostly replaced by viewState logic
+    onOpenDetail?: (order: GroupOrderRecord, tab?: 'info' | 'flow' | 'process') => void;
+    onOpenTaskDetail?: (task: any, tab?: 'info' | 'flow' | 'process') => void;
+    activeSubTab?: 'order' | 'task';
+    onSubTabChange?: (tab: 'order' | 'task') => void;
+}
+
+export const GroupOrderView: React.FC<GroupOrderViewProps> = ({ 
+    viewState, 
+    setViewState, 
+    activeSubTab, 
+    onSubTabChange 
+}) => {
+    
+    // Destructure state from props
+    const { 
+        tabs, 
+        activeTabId, 
+        detailRecords, 
+        taskDetailRecords, 
+        isSidebarCollapsed, 
+        targetOrderId, 
+        orderData, 
+        managerData,
+        managerKeyword, 
+        orderFilters, 
+        taskFilters, 
+        pagination 
+    } = viewState;
+
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
+
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+
+    // Helper Setters to mimic local state API
+    const updateState = (updates: Partial<GroupOrderViewState>) => setViewState(prev => ({ ...prev, ...updates }));
+    
+    const setTabs = (val: any) => setViewState(prev => ({ ...prev, tabs: typeof val === 'function' ? val(prev.tabs) : val }));
+    const setActiveTabId = (val: any) => setViewState(prev => ({ ...prev, activeTabId: typeof val === 'function' ? val(prev.activeTabId) : val }));
+    const setDetailRecords = (val: any) => setViewState(prev => ({ ...prev, detailRecords: typeof val === 'function' ? val(prev.detailRecords) : val }));
+    const setTaskDetailRecords = (val: any) => setViewState(prev => ({ ...prev, taskDetailRecords: typeof val === 'function' ? val(prev.taskDetailRecords) : val }));
+    const setIsSidebarCollapsed = (val: any) => setViewState(prev => ({ ...prev, isSidebarCollapsed: typeof val === 'function' ? val(prev.isSidebarCollapsed) : val }));
+    const setTargetOrderId = (val: any) => setViewState(prev => ({ ...prev, targetOrderId: typeof val === 'function' ? val(prev.targetOrderId) : val }));
+    const setOrderData = (val: any) => setViewState(prev => ({ ...prev, orderData: typeof val === 'function' ? val(prev.orderData) : val }));
+    const setManagerKeyword = (val: any) => setViewState(prev => ({ ...prev, managerKeyword: typeof val === 'function' ? val(prev.managerKeyword) : val }));
+    const setOrderFilters = (val: any) => setViewState(prev => ({ ...prev, orderFilters: typeof val === 'function' ? val(prev.orderFilters) : val }));
+    const setTaskFilters = (val: any) => setViewState(prev => ({ ...prev, taskFilters: typeof val === 'function' ? val(prev.taskFilters) : val }));
+    const setPagination = (val: any) => setViewState(prev => ({ ...prev, pagination: typeof val === 'function' ? val(prev.pagination) : val }));
+
+    const handleSidebarClick = (module: 'order' | 'task' | 'config') => {
+        const labels: Record<string, string> = {
+            'order': '团单信息管理',
+            'task': '团单任务管理',
+            'config': '交付经理配置'
+        };
+
+        setViewState(prev => {
+            const exists = prev.tabs.find(t => t.id === module);
+            const newTabs = exists ? prev.tabs : [...prev.tabs, { id: module, label: labels[module], type: 'module' }];
+            return {
+                ...prev,
+                tabs: newTabs,
+                activeTabId: module
+            };
+        });
+
+        // Only propagate 'order' or 'task' to parent if required, ignore 'config' for parent sync
+        if (onSubTabChange && (module === 'order' || module === 'task')) {
+            onSubTabChange(module);
+        }
+    }
+
+    const handleCloseTab = (e: React.MouseEvent | null, tabId: string) => {
+        if (e) e.stopPropagation();
+        
+        setViewState(prev => {
+            const newTabs = prev.tabs.filter(t => t.id !== tabId);
+            let newActiveId = prev.activeTabId;
+            const newDetailRecords = { ...prev.detailRecords };
+            const newTaskDetailRecords = { ...prev.taskDetailRecords };
+
+            if (tabId.startsWith('detail-')) delete newDetailRecords[tabId];
+            if (tabId.startsWith('task-detail-')) delete newTaskDetailRecords[tabId];
+
+            if (prev.activeTabId === tabId) {
+                if (newTabs.length > 0) {
+                    newActiveId = newTabs[newTabs.length - 1].id;
+                } else {
+                    newActiveId = ''; // Handle case where all tabs are closed
+                }
+            }
+
+            return {
+                ...prev,
+                tabs: newTabs,
+                activeTabId: newActiveId,
+                detailRecords: newDetailRecords,
+                taskDetailRecords: newTaskDetailRecords
+            };
+        });
+    };
+    
+    // Handle Drill Down from Order List
+    const handleDispatchClick = (row: any) => {
+        setViewState(prev => ({
+            ...prev,
+            targetOrderId: row.groupOrderId,
+            taskFilters: { ...prev.taskFilters, keyword: row.name },
+            pagination: { ...prev.pagination, currentPage: 1 }
+        }));
+        handleSidebarClick('task');
+    };
+
+    // Handle opening Group Order Detail in local tab
+    const handleOpenOrderDetailLocal = (row: GroupOrderRecord, targetTab: 'info' | 'flow' | 'process' = 'info') => {
+        const tabId = `detail-${row.id}`;
+        const timestamp = Date.now();
+        
+        setViewState(prev => {
+            const exists = prev.tabs.find(t => t.id === tabId);
+            const newTabs = exists 
+                ? prev.tabs.map(t => t.id === tabId ? { ...t, initialTab: targetTab, triggerTimestamp: timestamp } : t)
+                : [...prev.tabs, { id: tabId, label: '团单详情', type: 'detail', initialTab: targetTab, triggerTimestamp: timestamp }];
+            
+            return {
+                ...prev,
+                tabs: newTabs,
+                activeTabId: tabId,
+                detailRecords: { ...prev.detailRecords, [tabId]: row }
+            };
+        });
+    };
+
+    // Handle opening related order from task view
+    const handleOpenRelatedOrder = (groupOrderId: string) => {
+        const order = orderData.find((o: any) => o.groupOrderId === groupOrderId);
+        if (order) {
+            handleOpenOrderDetailLocal(order, 'info');
+        }
+    };
+
+    // Handle opening Task Detail in local tab
+    const handleOpenTaskDetailLocal = (task: any, targetTab: 'info' | 'flow' | 'process' = 'info') => {
+        const tabId = `task-detail-${task.id}`;
+        const timestamp = Date.now();
+        
+        setViewState(prev => {
+            // const label = task.name.length > 8 ? task.name.substring(0, 8) + '...' : task.name;
+            const exists = prev.tabs.find(t => t.id === tabId);
+            const newTabs = exists
+                ? prev.tabs.map(t => t.id === tabId ? { ...t, initialTab: targetTab, triggerTimestamp: timestamp } : t)
+                : [...prev.tabs, { id: tabId, label: '团单任务详情', type: 'task-detail', initialTab: targetTab, triggerTimestamp: timestamp }];
+
+            return {
+                ...prev,
+                tabs: newTabs,
+                activeTabId: tabId,
+                taskDetailRecords: { ...prev.taskDetailRecords, [tabId]: task }
+            };
+        });
+    };
+
+    // Handler to preserve inner tab state when switching inside details
+    const handleDetailTabChange = (tabId: string, newTab: 'info' | 'flow' | 'process') => {
+        setTabs((prev: TabItem[]) => prev.map(t => t.id === tabId ? { ...t, initialTab: newTab } : t));
+    };
+
+    // Handle Important Toggle
+    const handleToggleImportant = (id: string) => {
+        setOrderData((prev: any[]) => prev.map((item: any) => 
+            item.id === id ? { ...item, isImportant: !item.isImportant } : item
+        ));
+    };
+
+    // Filter & Sort Logic for Orders
+    const filteredOrderData = useMemo(() => {
+        let data = orderData.filter((item: any) => {
+            const matchesKeyword = !orderFilters.keyword || item.name.includes(orderFilters.keyword) || item.groupOrderId.includes(orderFilters.keyword);
+            const matchesStatus = !orderFilters.status || item.status === orderFilters.status;
+            const matchesLevel = !orderFilters.level || item.level === orderFilters.level;
+            return matchesKeyword && matchesStatus && matchesLevel;
+        });
+
+        return data.sort((a: any, b: any) => {
+            if (a.isImportant !== b.isImportant) {
+                return a.isImportant ? -1 : 1;
+            }
+            const timeA = new Date(a.receiptTime).getTime();
+            const timeB = new Date(b.receiptTime).getTime();
+            return timeB - timeA;
+        });
+    }, [orderFilters, orderData]);
+
+    // Generate comprehensive task list from all orders based on focusStatus count
+    const allGeneratedTasks = useMemo(() => {
+        return orderData.flatMap((order: any) => {
+            const parts = order.focusStatus.split('/');
+            const completed = parseInt(parts[0]) || 0;
+            const total = parseInt(parts[1]) || 1; 
+            
+            return Array.from({ length: total }).map((_, i) => {
+                const isCompleted = i < completed;
+                let status = isCompleted ? '已完成' : (order.status === '待受理' ? '待受理' : '处理中');
+                if (!isCompleted && order.status === '撤单') status = '撤单';
+
+                return {
+                    id: `${order.id}_t${i}`,
+                    taskId: `${order.groupOrderId}-${(i + 1).toString().padStart(2, '0')}`,
+                    name: order.name,
+                    groupOrderId: order.groupOrderId,
+                    level: order.level,
+                    status: status,
+                    rate: isCompleted ? '100.00%' : '0.00%',
+                    dispatchRatio: '0/1',
+                    remaining: order.remainingTime,
+                    deadline: order.deliveryDeadline,
+                    finishTime: isCompleted ? '2026-02-12 10:00:00' : '',
+                    op: isCompleted ? '查看' : '处理',
+                    manager: order.manager
+                };
+            });
+        });
+    }, [orderData]);
+
+    // Filter Logic for Tasks
+    const filteredTaskData = useMemo(() => {
+        let data = allGeneratedTasks;
+
+        if (targetOrderId) {
+            data = data.filter((t: any) => t.groupOrderId === targetOrderId);
+        }
+
+        data = data.filter((item: any) => {
+            const matchesKeyword = !taskFilters.keyword || item.name.includes(taskFilters.keyword) || item.taskId.includes(taskFilters.keyword);
+            const matchesStatus = !taskFilters.status || item.status === taskFilters.status;
+            return matchesKeyword && matchesStatus;
+        });
+        
+        return data;
+    }, [allGeneratedTasks, taskFilters, targetOrderId]);
+
+    // Filter Logic for Managers
+    const filteredManagerData = useMemo(() => {
+        return managerData.filter((m: any) => !managerKeyword || m.name.includes(managerKeyword) || m.phone.includes(managerKeyword) || m.region.includes(managerKeyword));
+    }, [managerData, managerKeyword]);
+
+    // Calculate Active Counts (excluding Completed and Cancelled)
+    const activeOrderCount = useMemo(() => orderData.filter(o => o.status !== '已完成' && o.status !== '撤单').length, [orderData]);
+    const activeTaskCount = useMemo(() => allGeneratedTasks.filter(t => t.status !== '已完成' && t.status !== '撤单').length, [allGeneratedTasks]);
+
+    // Current active data based on TAB ID
+    const currentData = activeTabId === 'order' ? filteredOrderData : activeTabId === 'task' ? filteredTaskData : filteredManagerData;
+    
+    const paginatedData = useMemo(() => {
+        const start = (pagination.currentPage - 1) * pagination.pageSize;
+        return currentData.slice(start, start + pagination.pageSize);
+    }, [currentData, pagination]);
+
+    const totalItems = currentData.length;
+    const totalPages = Math.ceil(totalItems / pagination.pageSize);
+
+    // Status Badge Helper
+    const getStatusBadge = (status: string) => {
+        switch (status) {
+            case '处理中': return <span className="px-3 py-0.5 rounded text-xs bg-[#2563eb]/20 text-[#60a5fa] border border-[#2563eb]/40">处理中</span>;
+            case '待受理': return <span className="px-3 py-0.5 rounded text-xs bg-[#eab308]/20 text-[#fde047] border border-[#eab308]/40">待受理</span>;
+            case '撤单': return <span className="px-3 py-0.5 rounded text-xs bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/40">撤单</span>;
+            case '已完成': return <span className="px-3 py-0.5 rounded text-xs bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40">已完成</span>;
+            case '待回单': return <span className="px-3 py-0.5 rounded text-xs bg-[#8b5cf6]/20 text-[#a78bfa] border border-[#8b5cf6]/40">待回单</span>;
+            default: return <span className="px-3 py-0.5 rounded text-xs text-gray-400">{status}</span>;
+        }
+    };
+
+    const MenuItem = ({ id, label, icon, count, showCount = true }: { id: 'order' | 'task' | 'config', label: string, icon: React.ReactNode, count: number, showCount?: boolean }) => {
+        const isActive = activeTabId === id;
+        return (
+            <div 
+                onClick={() => {
+                    handleSidebarClick(id as any);
+                    setPagination({ ...pagination, currentPage: 1 });
+                    if (id === 'order' || id === 'task') setTargetOrderId(null);
+                }}
+                className={`
+                    relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 border-l-2
+                    ${isActive 
+                        ? 'border-neon-blue bg-gradient-to-r from-blue-600/30 to-transparent text-white' 
+                        : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'}
+                    ${isSidebarCollapsed ? 'justify-center px-2' : ''}
+                `}
+                title={isSidebarCollapsed ? (showCount ? `${label} (${count})` : label) : ''}
+            >
+                <div className={`w-6 h-6 flex items-center justify-center shrink-0 relative ${isActive ? 'text-neon-blue' : 'text-current'}`}>
+                    {icon}
+                    {isSidebarCollapsed && showCount && count > 0 && (
+                        <div className="absolute -top-2 -right-2 min-w-[14px] h-[14px] px-0.5 bg-red-500 text-white text-[9px] flex items-center justify-center rounded-full border border-[#0c2242] shadow-sm z-10">
+                            {count > 99 ? '99+' : count}
+                        </div>
+                    )}
+                </div>
+                {!isSidebarCollapsed && (
+                    <span className="text-sm font-medium tracking-wide whitespace-nowrap">
+                        {label} {showCount && <span className="text-xs opacity-70 font-normal">({count})</span>}
+                    </span>
+                )}
+            </div>
+        );
+    };
+
+    // Helper to get tab specific props
+    const getActiveTabProps = () => {
+        const tab = tabs.find(t => t.id === activeTabId);
+        return tab || {};
+    };
+
+    return (
+        <div className="flex h-full w-full bg-transparent overflow-hidden relative">
+            
+            {/* Sidebar - Separated container */}
+            <div className={`${isSidebarCollapsed ? 'w-[42px]' : 'w-[180px]'} bg-transparent border border-blue-500/30 mr-2 transition-all duration-300 ease-in-out flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.3)]`}>
+                {/* Header - Transparent Background */}
+                <div className="h-[35px] flex items-center justify-between px-4 border-b border-blue-500/20 bg-transparent shrink-0">
+                    {!isSidebarCollapsed && <span className="text-blue-100 font-bold tracking-wider text-[12px]">团单管理</span>}
+                    <button 
+                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        className={`text-blue-400 hover:text-white transition-colors ${isSidebarCollapsed ? 'mx-auto' : ''}`}
+                    >
+                        {isSidebarCollapsed ? <SidebarOpenIcon /> : <SidebarCloseIcon />}
+                    </button>
+                </div>
+                <div className="flex-1 py-4 flex flex-col gap-1 overflow-y-auto custom-scrollbar">
+                    <MenuItem id="order" label="团单信息管理" icon={<FolderIcon />} count={activeOrderCount} />
+                    <MenuItem id="task" label="团单任务管理" icon={<ListIcon />} count={activeTaskCount} />
+                    <MenuItem id="config" label="交付经理配置" icon={<UserIcon />} count={managerData.length} showCount={false} />
+                </div>
+            </div>
+
+            {/* Main Content - Separated container with Tab Bar */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-transparent">
+                
+                {/* Tab Bar - Consistent with Complaint Support */}
+                <div className="flex items-end gap-[6px] pl-0 pr-4 h-[35px] border-none bg-[#0c1a35]/20 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                    {tabs.map((tab) => {
+                        const isActive = activeTabId === tab.id;
+                        return (
+                            <div 
+                                key={tab.id} 
+                                onClick={() => setActiveTabId(tab.id)}
+                                onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+                                }}
+                                className={`
+                                    relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[120px] px-3 overflow-hidden group
+                                    ${isActive 
+                                        ? 'z-10' 
+                                        : 'border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-transparent'}
+                                `}
+                            >
+                                {/* Active Tab Indicators */}
+                                {isActive && (
+                                    <>
+                                        <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
+                                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
+                                        <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                        <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                        {/* Bottom glow removed as requested */}
+                                    </>
+                                )}
+                                <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
+                                <button onClick={(e) => handleCloseTab(e, tab.id)} className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}> <XIcon /> </button> 
+                            </div> 
+                        );
+                    })}
+                </div>
+
+                {/* Content Area - Now has the border */}
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden border border-blue-500/30 bg-[#0b1730]/20 relative">
+                    {tabs.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-blue-300/50">
+                            <div className="text-5xl mb-4">👈</div>
+                            <div className="text-lg">请点击左侧菜单查看模块</div>
+                        </div>
+                    ) : activeTabId.startsWith('detail-') && detailRecords[activeTabId] ? (
+                        // Render Detail View for Order Detail Tabs
+                        <div className="h-full p-0">
+                            <GroupOrderDetailView 
+                                order={detailRecords[activeTabId]} 
+                                onBack={() => handleCloseTab(null, activeTabId)}
+                                initialTab={getActiveTabProps().initialTab}
+                                triggerTimestamp={getActiveTabProps().triggerTimestamp}
+                                onTabChange={(tab) => handleDetailTabChange(activeTabId, tab)}
+                            />
+                        </div>
+                    ) : activeTabId.startsWith('task-detail-') && taskDetailRecords[activeTabId] ? (
+                        // Render Detail View for Task Detail Tabs
+                        <div className="h-full p-0">
+                            <GroupOrderTaskDetailView 
+                                task={taskDetailRecords[activeTabId]} 
+                                onBack={() => handleCloseTab(null, activeTabId)}
+                                initialTab={getActiveTabProps().initialTab}
+                                triggerTimestamp={getActiveTabProps().triggerTimestamp}
+                                onTabChange={(tab) => handleDetailTabChange(activeTabId, tab)}
+                            />
+                        </div>
+                    ) : (
+                        // Render List View for Module Tabs
+                        <>
+                            {/* Filter Bar */}
+                            <div className="p-4 border-b border-blue-500/20 flex flex-wrap items-center gap-4 text-sm shrink-0 bg-transparent">
+                                {activeTabId === 'order' && (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">关键字</label>
+                                            <StyledInput 
+                                                placeholder="请输入集团客户名称、团单标识" 
+                                                className="w-64 bg-[#0b1730]/50" 
+                                                value={orderFilters.keyword}
+                                                onChange={(e) => setOrderFilters({...orderFilters, keyword: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">团单状态</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50" 
+                                                value={orderFilters.status}
+                                                onChange={(e) => setOrderFilters({...orderFilters, status: e.target.value})}
+                                            >
+                                                <option value="">请选择</option>
+                                                <option value="待受理">待受理</option>
+                                                <option value="处理中">处理中</option>
+                                                <option value="已完成">已完成</option>
+                                                <option value="待回单">待回单</option>
+                                                <option value="撤单">撤单</option>
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">团单等级</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50"
+                                                value={orderFilters.level}
+                                                onChange={(e) => setOrderFilters({...orderFilters, level: e.target.value})}
+                                            >
+                                                <option value="">请选择</option>
+                                                <option value="省级">省级</option>
+                                                <option value="地市级">地市级</option>
+                                                <option value="旗县级">旗县级</option>
+                                                <option value="网格级">网格级</option>
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">网络侧收单时间</label>
+                                            <StyledInput 
+                                                type="date" 
+                                                className="w-32 bg-[#0b1730]/50"
+                                                value={orderFilters.startDate}
+                                                onChange={(e) => setOrderFilters({...orderFilters, startDate: e.target.value})}
+                                            />
+                                            <span className="text-blue-400">至</span>
+                                            <StyledInput 
+                                                type="date" 
+                                                className="w-32 bg-[#0b1730]/50" 
+                                                value={orderFilters.endDate}
+                                                onChange={(e) => setOrderFilters({...orderFilters, endDate: e.target.value})}
+                                            />
+                                        </div>
+                                    </>
+                                )} 
+                                
+                                {activeTabId === 'task' && (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">关键字</label>
+                                            <StyledInput 
+                                                placeholder="请输入任务标识号/团单名称" 
+                                                className="w-80 bg-[#0b1730]/50" 
+                                                value={taskFilters.keyword}
+                                                onChange={(e) => setTaskFilters({...taskFilters, keyword: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">任务状态</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50" 
+                                                value={taskFilters.status}
+                                                onChange={(e) => setTaskFilters({...taskFilters, status: e.target.value})}
+                                            >
+                                                <option value="">请选择</option>
+                                                <option value="待受理">待受理</option>
+                                                <option value="处理中">处理中</option>
+                                                <option value="已完成">已完成</option>
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">派发时间</label>
+                                            <StyledInput 
+                                                type="date" 
+                                                className="w-36 bg-[#0b1730]/50"
+                                                value={taskFilters.startDate}
+                                                onChange={(e) => setTaskFilters({...taskFilters, startDate: e.target.value})}
+                                            />
+                                            <span className="text-blue-400">至</span>
+                                            <StyledInput 
+                                                type="date" 
+                                                className="w-36 bg-[#0b1730]/50" 
+                                                value={taskFilters.endDate}
+                                                onChange={(e) => setTaskFilters({...taskFilters, endDate: e.target.value})}
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                {activeTabId === 'config' && (
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-blue-200">关键字</label>
+                                        <StyledInput 
+                                            placeholder="请输入姓名/手机号/区域" 
+                                            className="w-80 bg-[#0b1730]/50" 
+                                            value={managerKeyword}
+                                            onChange={(e) => setManagerKeyword(e.target.value)}
+                                        />
+                                        <StyledButton variant="toolbar" className="bg-[#07596C] border-[#5FBADD]" icon={<PlusCircleIcon />}>新增经理</StyledButton>
+                                    </div>
+                                )}
+                                
+                                <div className="flex items-center gap-3">
+                                    <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
+                                    <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => {
+                                        if (activeTabId === 'order') setOrderFilters({ keyword: '', status: '', level: '', startDate: '', endDate: '' });
+                                        else if (activeTabId === 'task') {
+                                            setTaskFilters({ keyword: '', status: '', startDate: '', endDate: '' });
+                                            setTargetOrderId(null);
+                                        } else {
+                                            setManagerKeyword('');
+                                        }
+                                    }} icon={<RefreshCwIcon />}>重置</StyledButton>
+                                </div>
+                            </div>
+
+                            {/* Table Area */}
+                            <div className="flex-1 overflow-auto custom-scrollbar bg-transparent">
+                                <table className="w-full text-left text-sm border-separate border-spacing-0">
+                                    <thead className="sticky top-0 z-10 shadow-sm">
+                                        {activeTabId === 'order' && (
+                                            <tr>
+                                                <Th className="w-10 text-center">重点</Th>
+                                                <Th className="text-center">分派任务</Th>
+                                                <Th className="text-center">未分派工单</Th>
+                                                <Th>团单标识号</Th>
+                                                <Th>团单名称</Th>
+                                                <Th>团单等级</Th>
+                                                <Th>交付经理</Th>
+                                                <Th className="text-center">状态</Th>
+                                                <Th className="text-center">竣工率</Th>
+                                                <Th className="text-center">在途量/派单量</Th>
+                                                <Th className="text-center">剩余时限</Th>
+                                                <Th>网络侧收单时间</Th>
+                                                <Th>交付时限</Th>
+                                                <Th>完成时间</Th>
+                                                <Th className="text-center sticky right-0 bg-[#0c2242] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th>
+                                            </tr>
+                                        )}
+                                        {activeTabId === 'task' && (
+                                            <tr>
+                                                <Th>任务标识号</Th>
+                                                <Th>团单标识号</Th>
+                                                <Th>团单名称</Th>
+                                                <Th>团单等级</Th>
+                                                <Th className="text-center">任务状态</Th>
+                                                <Th className="text-center">任务竣工率</Th>
+                                                <Th className="text-center">在途量/任务派单量</Th>
+                                                <Th className="text-center">任务剩余时限</Th>
+                                                <Th>任务交付时限</Th>
+                                                <Th>任务完成时间</Th>
+                                                <Th className="text-center sticky right-0 bg-[#0c2242] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th>
+                                            </tr>
+                                        )}
+                                        {activeTabId === 'config' && (
+                                            <tr>
+                                                <Th>姓名</Th>
+                                                <Th>联系电话</Th>
+                                                <Th>管理层级</Th>
+                                                <Th>负责区域</Th>
+                                                <Th className="text-center sticky right-0 bg-[#0c2242] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th>
+                                            </tr>
+                                        )}
+                                    </thead>
+                                    <tbody className="text-blue-100 text-sm">
+                                        {activeTabId === 'config' ? (
+                                            // Manager Table Body
+                                            paginatedData.length > 0 ? paginatedData.map((row: any, idx) => (
+                                                <tr key={row.id} className={`hover:bg-[#1e3a5f]/40 transition-colors border-b border-blue-500/10 whitespace-nowrap ${idx % 2 === 1 ? 'bg-[#0c2242]/30' : ''}`}>
+                                                    <td className="p-3 border-b border-blue-500/10">{row.name}</td>
+                                                    <td className="p-3 border-b border-blue-500/10 font-mono text-gray-300">{row.phone}</td>
+                                                    <td className="p-3 border-b border-blue-500/10"><span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-500/30 text-xs">{row.level}</span></td>
+                                                    <td className="p-3 border-b border-blue-500/10">{row.region}</td>
+                                                    <td className="p-3 text-center border-b border-blue-500/10 sticky right-0 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button className="text-blue-400 hover:text-white p-1" title="编辑"><EditIcon /></button>
+                                                            <button className="text-red-400 hover:text-red-300 p-1" title="删除"><TrashIcon /></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )) : <tr><td colSpan={5} className="p-8 text-center text-gray-500 border-b border-blue-500/10">暂无经理数据</td></tr>
+                                        ) : (
+                                            // Order/Task Table Body
+                                            paginatedData.length > 0 ? (
+                                                paginatedData.map((row: any, idx) => (
+                                                    <tr key={row.id} className={`hover:bg-[#1e3a5f]/40 transition-colors border-b border-blue-500/10 whitespace-nowrap ${idx % 2 === 1 ? 'bg-[#0c2242]/30' : ''} ${row.isImportant ? 'bg-yellow-500/5' : ''}`}>
+                                                        {activeTabId === 'order' ? (
+                                                            <>
+                                                                <td className="p-3 text-center border-b border-blue-500/10">
+                                                                    <div className="flex justify-center">
+                                                                        <StarIcon 
+                                                                            filled={row.isImportant} 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleToggleImportant(row.id);
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3 text-center text-neon-blue font-mono border-b border-blue-500/10">
+                                                                    {/* Clickable Assigned Tasks Cell */}
+                                                                    <span 
+                                                                        className="cursor-pointer hover:underline"
+                                                                        onClick={() => handleDispatchClick(row)}
+                                                                    >
+                                                                        {row.focusStatus}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.assignedTasks}</td>
+                                                                <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{row.groupOrderId}</td>
+                                                                <td className="p-3 border-b border-blue-500/10">
+                                                                    <span 
+                                                                        className="text-neon-blue hover:underline block max-w-[200px] truncate cursor-pointer" 
+                                                                        title={row.name}
+                                                                        onClick={() => handleOpenOrderDetailLocal(row, 'info')}
+                                                                    >
+                                                                        {row.name}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 border-b border-blue-500/10 text-white">{row.level}</td>
+                                                                <td className="p-3 border-b border-blue-500/10 text-white font-mono text-[11px]">{row.manager}</td>
+                                                                <td className="p-3 text-center border-b border-blue-500/10">{getStatusBadge(row.status)}</td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.completionRate}</td>
+                                                                <td className="p-3 text-center text-neon-blue font-mono border-b border-blue-500/10">{row.inflightDispatched}</td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.remainingTime}</td>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.receiptTime}</td>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.deliveryDeadline}</td>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.completionTime}</td>
+                                                                <td className="p-3 text-center border-b border-blue-500/10 sticky right-0 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
+                                                                    <button 
+                                                                        className="text-neon-blue hover:text-white hover:underline"
+                                                                        onClick={() => handleOpenOrderDetailLocal(row, 'process')}
+                                                                    >
+                                                                        {row.status === '待受理' ? '受理' : '处理'}
+                                                                    </button>
+                                                                </td>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10">
+                                                                    <span 
+                                                                        className="text-neon-blue hover:underline cursor-pointer"
+                                                                        onClick={() => handleOpenTaskDetailLocal(row, 'info')}
+                                                                    >
+                                                                        {row.taskId}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{row.groupOrderId}</td>
+                                                                <td className="p-3 border-b border-blue-500/10">
+                                                                    <span 
+                                                                        className="text-neon-blue hover:underline block max-w-[300px] truncate cursor-pointer" 
+                                                                        title={row.name}
+                                                                        onClick={() => handleOpenRelatedOrder(row.groupOrderId)}
+                                                                    >
+                                                                        {row.name}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 border-b border-blue-500/10">{row.level}</td>
+                                                                <td className="p-3 text-center border-b border-blue-500/10">{getStatusBadge(row.status)}</td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.rate}</td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.dispatchRatio}</td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.remaining}</td>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10">{row.deadline}</td>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10">{row.finishTime}</td>
+                                                                <td className="p-3 text-center border-b border-blue-500/10 sticky right-0 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
+                                                                    <button 
+                                                                        className="text-neon-blue hover:text-white hover:underline"
+                                                                        onClick={() => handleOpenTaskDetailLocal(row, row.op === '处理' ? 'process' : 'info')}
+                                                                    >
+                                                                        {row.op}
+                                                                    </button>
+                                                                </td>
+                                                            </>
+                                                        )}
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={14} className="p-8 text-center text-gray-500 border-b border-blue-500/10">暂无数据</td>
+                                                </tr>
+                                            )
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="h-[40px] bg-transparent border-t border-blue-500/20 flex items-center justify-between px-4 shrink-0 text-xs">
+                                <button className="flex items-center gap-1 text-neon-blue border border-neon-blue/30 px-3 py-1 rounded hover:bg-neon-blue/10 transition-colors">
+                                    <DownloadIcon /> <span className="ml-1">导出</span>
+                                </button>
+                                <div className="flex items-center gap-4 text-blue-300">
+                                    <span>共 {totalItems} 条</span>
+                                    <div className="flex items-center gap-1">
+                                        <button 
+                                            className="p-1 hover:text-white disabled:opacity-30" 
+                                            disabled={pagination.currentPage === 1}
+                                            onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage - 1 })}
+                                        >
+                                            <ChevronLeftIcon />
+                                        </button>
+                                        <span className="px-2 py-0.5 bg-blue-600 text-white rounded">{pagination.currentPage}</span>
+                                        <span className="text-gray-500">/ {totalPages}</span>
+                                        <button 
+                                            className="p-1 hover:text-white disabled:opacity-30" 
+                                            disabled={pagination.currentPage === totalPages}
+                                            onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage + 1 })}
+                                        >
+                                            <ChevronRightIcon />
+                                        </button>
+                                    </div>
+                                    <select 
+                                        className="bg-[#0b1730] border border-blue-500/30 text-white px-2 py-0.5 rounded outline-none"
+                                        value={pagination.pageSize}
+                                        onChange={(e) => setPagination({ currentPage: 1, pageSize: Number(e.target.value) })}
+                                    >
+                                        <option value={15}>15条/页</option>
+                                        <option value={30}>30条/页</option>
+                                        <option value={50}>50条/页</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+            
+            {/* Context Menu for Tabs */}
+            {contextMenu && (
+                <div 
+                    className="fixed z-[9999] bg-[#0A3458]/95 border border-blue-500/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md py-1 w-32 rounded-sm animate-[fadeIn_0.1s_ease-out]"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                >
+                    <div 
+                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-xs text-blue-100 hover:text-white transition-colors" 
+                        onClick={() => {
+                            handleCloseTab(null, contextMenu.tabId);
+                            setContextMenu(null);
+                        }}
+                    >
+                        关闭当前标签
+                    </div>
+                    <div 
+                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-xs text-blue-100 hover:text-white transition-colors" 
+                        onClick={() => {
+                            setTabs([]);
+                            setActiveTabId('');
+                            setDetailRecords({});
+                            setTaskDetailRecords({});
+                            setContextMenu(null);
+                        }}
+                    >
+                        关闭所有标签
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};

@@ -174,7 +174,7 @@ export const ConfigCapabilitiesView: React.FC = () => {
     const paginatedItems = batchItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
-        <div className="flex flex-col h-full bg-[#0b1730]/40 backdrop-blur-sm text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
+        <div className="flex flex-col h-full bg-transparent text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
             
             {/* Tab Switcher - Updated style to match ComplaintStatsView */}
             <div className="flex items-end pt-4">
@@ -208,7 +208,7 @@ export const ConfigCapabilitiesView: React.FC = () => {
                 {activeTab === 'general' && (
                     <div className="space-y-6">
                         {/* Config Form Panel - Left to Right, Evenly Distributed (Not Proportional) */}
-                        <div className="bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm shadow-sm">
+                        <div className="bg-transparent p-4 border border-blue-500/20 rounded-sm shadow-sm">
                             <h3 className="text-sm font-bold text-neon-blue mb-4 flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-neon-blue"></span>
                                 新增规则
@@ -274,7 +274,7 @@ export const ConfigCapabilitiesView: React.FC = () => {
                         </div>
 
                         {/* Rules List Table */}
-                        <div className="border border-blue-500/20 bg-[#0b1730]/20">
+                        <div className="border border-blue-500/20 bg-transparent">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-[#0c2242] text-white">
                                     <tr>
@@ -328,7 +328,7 @@ export const ConfigCapabilitiesView: React.FC = () => {
                 {activeTab === 'personal' && (
                     <div className="space-y-6">
                         {/* Config Form Panel - Left to Right, Evenly Distributed (Not Proportional) */}
-                        <div className="bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm shadow-sm">
+                        <div className="bg-transparent p-4 border border-blue-500/20 rounded-sm shadow-sm">
                             <h3 className="text-sm font-bold text-neon-blue mb-4 flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-neon-blue"></span>
                                 导入配置
@@ -381,7 +381,7 @@ export const ConfigCapabilitiesView: React.FC = () => {
                         </div>
 
                         {/* Rules List Table */}
-                        <div className="border border-blue-500/20 bg-[#0b1730]/20">
+                        <div className="border border-blue-500/20 bg-transparent">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-[#0c2242] text-white">
                                     <tr>

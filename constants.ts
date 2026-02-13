@@ -1,4 +1,5 @@
-import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord } from './types';
+
+import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord, GroupOrderRecord } from './types';
 
 // Helper to format numbers with commas
 const formatNumber = (num: number): string => {
@@ -708,6 +709,89 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
     return data;
 }
 
+// Generate Mock Data for Group Orders (Figure 1 in request)
+export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
+    const data: GroupOrderRecord[] = [];
+    // Updated statuses to include '待回单'
+    const statuses: ('处理中' | '待受理' | '撤单' | '已完成' | '待回单')[] = ['处理中', '待受理', '处理中', '处理中', '待受理', '撤单', '已完成', '处理中', '处理中', '待受理', '已完成', '处理中', '撤单', '待回单', '待回单'];
+    const names = [
+        "内蒙古自治区教育厅-省级教育专网",
+        "呼和浩特市第一中学-智慧校园光纤",
+        "土默特左旗人民医院-医保联网专线",
+        "回民区万达广场-商业宽带批量接入",
+        "内蒙古电力集团-全区电力调度数据网",
+        "包头市青山区政府-政务外网扩容",
+        "杨智彬-47177000800720260...",
+        "内蒙古巴运控股(集团)有限...",
+        "伊金霍洛旗红庆河镇人民政府...",
+        "中国航空集团旅业有限公司内...",
+        "鄂托克旗三江龙酒店-471770...",
+        "林西县新林镇小学-47176000...",
+        "林西县板石房子小学-471760...",
+        "内蒙古鼎盛商业综合体管理服..."
+    ];
+    const levels = ["省级", "地市级", "旗县级", "网格级", "省级", "地市级", "网格级", "地市级", "旗县级", "省级", "旗县级", "旗县级", "网格级", "地市级"];
+    const managers = [
+        "张宏伟(1394718...)", "王坤鹏(15004821...)", "王晓强(19804899...)", "付素波(15147696...)", 
+        "赵铁柱(13800138...)", "智宇宁(15024866...)", "王志东(13947375...)", "刘伟(184471809...)", 
+        "张彦飞(18747749...)", "武楠(158481299...)", "额力苏(18247744...)", "侯峰(138476704...)", 
+        "侯峰(138476704...)", "王晓强(19804899...)"
+    ];
+
+    for (let i = 0; i < count; i++) {
+        const nameIndex = i % names.length;
+        const status = statuses[i % statuses.length];
+        
+        // Dates
+        const receiptDate = new Date();
+        receiptDate.setDate(receiptDate.getDate() - Math.floor(Math.random() * 5));
+        receiptDate.setHours(9 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60), Math.floor(Math.random() * 60));
+        const receiptTime = receiptDate.toISOString().replace('T', ' ').substring(0, 19);
+
+        const deadlineDate = new Date(receiptDate);
+        deadlineDate.setDate(deadlineDate.getDate() + 4);
+        const deliveryDeadline = deadlineDate.toISOString().replace('T', ' ').substring(0, 19);
+
+        let completionTime = '';
+        if (status === '已完成') {
+            const compDate = new Date(receiptDate);
+            compDate.setDate(compDate.getDate() + 2);
+            completionTime = compDate.toISOString().replace('T', ' ').substring(0, 19);
+        }
+
+        const remainingDays = (Math.random() * 5 + 1).toFixed(2);
+        const completionRate = status === '已完成' ? '100.00%' : (status === '待受理' ? '0.00%' : (Math.random() * 80).toFixed(2) + '%');
+        const inflight = Math.floor(Math.random() * 6);
+        const total = inflight + Math.floor(Math.random() * 3);
+        const inflightStr = status === '已完成' ? `0/1` : `${inflight}/${total === 0 ? 1 : total}`;
+
+        // Ensure logical focusStatus: completed / total, where total >= completed
+        const totalTasks = Math.floor(Math.random() * 8) + 1; // 1 to 8 tasks
+        // For '待回单', tasks should be 100% completed technically, but maybe not officially 'Done'
+        const completedTasks = (status === '已完成' || status === '待回单') ? totalTasks : (status === '待受理' ? 0 : Math.floor(Math.random() * totalTasks));
+        const focusStatus = `${completedTasks}/${totalTasks}`;
+
+        data.push({
+            id: `go-${i}`,
+            isImportant: i % 5 === 0,
+            focusStatus: focusStatus,
+            assignedTasks: status === '待受理' ? 0 : Math.floor(Math.random() * 5),
+            unassignedTickets: status === '待受理' ? Math.floor(Math.random() * 5) + 1 : 0,
+            name: names[nameIndex],
+            level: levels[nameIndex],
+            manager: managers[nameIndex],
+            status,
+            completionRate,
+            inflightDispatched: inflightStr,
+            remainingTime: (status === '已完成' || status === '撤单') ? '-' : `${remainingDays}天`,
+            receiptTime,
+            deliveryDeadline: (status === '撤单') ? '-' : deliveryDeadline,
+            completionTime
+        });
+    }
+    return data;
+};
+
 export const MOCK_DATA = generateMockData(45);
 export const MOCK_SPN_DATA = generateSpnMockData(35);
 export const MOCK_INTERNET_DATA = generateInternetMockData(40);
@@ -719,3 +803,4 @@ export const MOCK_ROUTE_CITY_DATA = generateRouteCityMockData(50);
 export const MOCK_ROUTE_DATA = generateRouteMockData(50);
 export const MOCK_SUBSCRIPTION_DATA = generateSubscriptionMockData(50);
 export const MOCK_COMPLAINT_DATA = generateComplaintMockData(40);
+export const MOCK_GROUP_ORDER_DATA = generateGroupOrderData(20);

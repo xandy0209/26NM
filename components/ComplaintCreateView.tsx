@@ -214,7 +214,7 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0b1730]/40 text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)] relative">
+    <div className="flex flex-col h-full bg-transparent text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)] relative">
         
         {/* Custom Notification Toast - Absolute Positioned on Top */}
         {notification && (

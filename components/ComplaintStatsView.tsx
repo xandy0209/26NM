@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { StyledButton, StyledSelect, StyledInput } from './UI';
 import { Pagination } from './Pagination';
@@ -141,7 +140,7 @@ export const ComplaintStatsView: React.FC = () => {
     const paginatedData = currentData.slice((pagination.currentPage - 1) * pagination.pageSize, pagination.currentPage * pagination.pageSize);
 
     return (
-        <div className="flex flex-col h-full bg-[#0b1730]/40 backdrop-blur-sm text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
+        <div className="flex flex-col h-full bg-transparent text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
             
             {/* Tabs */}
             <div className="flex items-end pt-4">
@@ -172,7 +171,7 @@ export const ComplaintStatsView: React.FC = () => {
 
             {/* Filter Bar */}
             <div className="flex-1 flex flex-col p-6 overflow-hidden">
-                <div className="bg-blue-900/10 p-3 border border-blue-500/20 rounded-sm mb-4 flex flex-wrap items-center gap-4 shrink-0">
+                <div className="bg-transparent p-3 border border-blue-500/20 rounded-sm mb-4 flex flex-wrap items-center gap-4 shrink-0">
                     <div className="flex items-center gap-2">
                         <label className="text-xs text-white">月份</label>
                         <StyledInput 
@@ -239,7 +238,7 @@ export const ComplaintStatsView: React.FC = () => {
                 </div>
 
                 {/* Table */}
-                <div className="flex-1 overflow-auto border border-blue-500/20 bg-[#0b1730]/20 scrollbar-thin">
+                <div className="flex-1 overflow-auto border border-blue-500/20 bg-transparent scrollbar-thin">
                     <table className="w-full text-left text-sm whitespace-nowrap [&_th]:align-middle [&_td]:align-middle">
                         <thead className="sticky top-0 bg-[#0c2242] text-white z-10 shadow-sm">
                             <tr>
@@ -339,7 +338,7 @@ export const ComplaintStatsView: React.FC = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="bg-[#1e293b]/50 border-t border-blue-500/30 shrink-0">
+                <div className="bg-transparent border-t border-blue-500/30 shrink-0">
                     <Pagination 
                         currentPage={pagination.currentPage}
                         pageSize={pagination.pageSize}

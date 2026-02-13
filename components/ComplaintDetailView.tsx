@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ComplaintRecord, SubscriptionRecord } from '../types';
 import { StyledButton, StyledSelect, StyledInput } from './UI';
@@ -8,6 +9,7 @@ interface Props {
   record: ComplaintRecord;
   targetTab?: 'basic' | 'flow' | 'process';
   triggerTimestamp?: number;
+  onTabChange?: (tab: 'basic' | 'flow' | 'process') => void;
 }
 
 // Helper Components
@@ -274,7 +276,7 @@ const generateLogs = (record: ComplaintRecord) => {
     });
 };
 
-export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, triggerTimestamp }) => {
+export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, triggerTimestamp, onTabChange }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'flow' | 'process'>('basic');
   const [currentStage, setCurrentStage] = useState(record.stage);
 
@@ -282,7 +284,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
     if (targetTab) {
         setActiveTab(targetTab);
     }
-  }, [triggerTimestamp]);
+  }, [triggerTimestamp, targetTab]); // Updated dependency to include targetTab for reliable updates
   
   const [businessInfo, setBusinessInfo] = useState({
       productType: record.productType,
@@ -334,6 +336,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
       if (qcData.qcResult === '通过') {
           setCurrentStage('已归档');
           setActiveTab('basic');
+          if (onTabChange) onTabChange('basic');
       } else if (qcData.qcResult === '驳回') {
           setCurrentStage('处理中');
       }
@@ -369,14 +372,19 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
   const logs = generateLogs(displayRecord);
   const currentDisplayTab = (activeTab === 'process' && !canShowProcess) ? 'basic' : activeTab;
 
+  const handleTabClick = (tabId: 'basic' | 'flow' | 'process') => {
+      setActiveTab(tabId);
+      if (onTabChange) onTabChange(tabId);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[#0b1730]/40 backdrop-blur-sm text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
+    <div className="flex flex-col h-full bg-transparent backdrop-blur-sm text-blue-100 animate-[fadeIn_0.3s_ease-out] overflow-hidden border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
         <div className="flex items-end pt-4">
             <div className="w-6 border-b border-blue-500/20"></div>
             {tabs.map(tab => (
                 <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => handleTabClick(tab.id as any)}
                     className={`
                         px-6 py-2 text-sm font-medium transition-all relative rounded-t-sm 
                         ${currentDisplayTab === tab.id 

@@ -242,7 +242,7 @@ export const WorkbenchView: React.FC = () => {
                 
                 {/* --- Left Sidebar --- */}
                 <div 
-                    className={`${isSidebarCollapsed ? 'w-[64px]' : 'w-[240px]'} bg-[#094F8B]/[0.03] border border-blue-500/30 flex flex-col shrink-0 transition-all duration-300`}
+                    className={`${isSidebarCollapsed ? 'w-[64px]' : 'w-[240px]'} bg-transparent border border-blue-500/30 flex flex-col shrink-0 transition-all duration-300`}
                 >
                     {/* Profile Header */}
                     <div className="p-4 border-b border-blue-500/10">
