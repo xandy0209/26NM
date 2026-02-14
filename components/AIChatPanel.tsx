@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { SendIcon, ArrowDownLeftIcon, XIcon, MicIcon, BotIcon, ListIcon, PlusIcon, PaperclipIcon, EditIcon, TrashIcon, CheckIcon } from './Icons';
 import { ChatMessage, ChatSession } from '../types';
@@ -666,7 +667,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
   // Tab Mode Render
   if (mode === 'tab') {
       return (
-          <div className="flex h-full w-full bg-[#0c2242]/20 backdrop-blur-md text-blue-100 font-sans overflow-hidden border-t border-blue-400/10 relative">
+          <div className="flex h-full w-full bg-transparent text-blue-100 font-sans overflow-hidden border-t border-blue-400/10 relative">
               <style>{`
                 #session-list-container::-webkit-scrollbar { width: 4px; background-color: transparent; }
                 #session-list-container::-webkit-scrollbar-track { background-color: transparent; border: none; }
