@@ -1,5 +1,5 @@
 {
-  "name": "26年NM项目-NEW",
+  "name": "26年NM项目",
   "description": "A high-fidelity data dashboard for querying complaint tickets with a space-themed UI.",
   "requestFramePermissions": [
     "microphone"
