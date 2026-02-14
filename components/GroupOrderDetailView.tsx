@@ -7,9 +7,9 @@ import { SearchIcon, RefreshCwIcon, DownloadIcon, ChevronLeftIcon, ChevronRightI
 interface GroupOrderDetailViewProps {
     order: GroupOrderRecord;
     onBack: () => void;
-    initialTab?: 'info' | 'flow' | 'process';
+    initialTab?: 'info' | 'flow' | 'process' | 'feedback';
     triggerTimestamp?: number;
-    onTabChange?: (tab: 'info' | 'flow' | 'process') => void;
+    onTabChange?: (tab: 'info' | 'flow' | 'process' | 'feedback') => void;
     onUpdateOrder?: (updates: Partial<GroupOrderRecord>) => void;
 }
 
@@ -232,6 +232,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
     const [tickets, setTickets] = useState<any[]>([]);
     const [orderStatus, setOrderStatus] = useState(order.status);
     const [completionTimestamp, setCompletionTimestamp] = useState<string>('');
+    const [allTaskFeedback, setAllTaskFeedback] = useState<any[]>([]);
     
     // UI State
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -257,7 +258,8 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
 
     // Sync State with Props (Initialization Only on Order ID change or explicit Trigger)
     useEffect(() => {
-        setTickets(generateDetailTickets(order));
+        const generatedTickets = generateDetailTickets(order);
+        setTickets(generatedTickets);
         setOrderStatus(order.status);
         setCompletionTimestamp('');
         // NOTE: We do not reset activeTab here to preserve tab state on remount
@@ -270,6 +272,26 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
         setDispatchCounty('');
         setDispatchGrid('');
         setDispatchManager('');
+
+        // Generate Aggregated Feedback from the generated tickets
+        // Simulating feedback entered for specific tasks
+        const generatedFeedback = generatedTickets.flatMap(t => {
+            // Generate 0-2 feedback items per ticket for a subset of tickets to simulate real activity
+            if (Math.random() > 0.85) {
+                return Array.from({ length: Math.floor(Math.random() * 2) + 1 }).map((_, i) => ({
+                    id: `${t.id}_fb_${i}`,
+                    taskId: t.title,
+                    taskName: t.title,
+                    time: addMinutesToTimeStr(t.netTime, 120 + Math.floor(Math.random() * 4000)), // Feedback happens after creation
+                    operator: t.dispatchManager !== '待分派' ? t.dispatchManager : '系统',
+                    operatorPhone: t.dispatchManager !== '待分派' ? `13${Math.floor(Math.random() * 9 + 1)}${Math.floor(Math.random() * 100000000).toString().padStart(8, '0')}` : '',
+                    content: i === 0 ? '已联系客户，预约上门时间。' : '上门核查完毕，资源具备。'
+                }));
+            }
+            return [];
+        }).sort((a, b) => new Date(b.time.replace(' ', 'T')).getTime() - new Date(a.time.replace(' ', 'T')).getTime());
+        setAllTaskFeedback(generatedFeedback);
+
     }, [order.id, triggerTimestamp]);
 
     // Sync Active Tab separately
@@ -415,7 +437,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
         }
     };
 
-    const handleTabClick = (tab: 'info' | 'flow' | 'process') => {
+    const handleTabClick = (tab: 'info' | 'flow' | 'process' | 'feedback') => {
         setActiveTab(tab);
         if (onTabChange) onTabChange(tab);
     };
@@ -486,6 +508,15 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
         }
     };
 
+    // Determine tabs based on status
+    const visibleTabs = useMemo(() => {
+        const tabs = ['团单信息', '流程信息', '团单处理'];
+        if (orderStatus !== '待受理') {
+            tabs.push('阶段反馈');
+        }
+        return tabs;
+    }, [orderStatus]);
+
     return (
         <div className="flex flex-col h-full w-full bg-transparent overflow-hidden animate-[fadeIn_0.3s_ease-out] font-sans text-sm">
             
@@ -509,8 +540,14 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                 {/* Navigation Tabs */}
                 <div className="flex items-end w-full">
                     <div className="w-6 border-b border-blue-500/20"></div>
-                    {['团单信息', '流程信息', '团单处理'].map((tab) => {
-                        const tabId = tab === '团单信息' ? 'info' : tab === '流程信息' ? 'flow' : 'process';
+                    {visibleTabs.map((tab) => {
+                        const tabMap: Record<string, 'info' | 'flow' | 'process' | 'feedback'> = {
+                            '团单信息': 'info',
+                            '流程信息': 'flow',
+                            '团单处理': 'process',
+                            '阶段反馈': 'feedback'
+                        };
+                        const tabId = tabMap[tab];
                         const isActive = activeTab === tabId;
                         return (
                             <button
@@ -821,6 +858,43 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                 )}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* --- TAB: FEEDBACK --- */}
+                {activeTab === 'feedback' && orderStatus !== '待受理' && (
+                    <div className="flex flex-col h-full bg-transparent border border-blue-500/20 rounded-sm p-5 shadow-sm animate-[fadeIn_0.3s_ease-out] overflow-hidden">
+                        <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4 shrink-0">
+                            任务阶段反馈汇总
+                        </h3>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                            {allTaskFeedback.length > 0 ? (
+                                allTaskFeedback.map(item => (
+                                    <div key={item.id} className="bg-[#0b1730]/40 border border-blue-500/10 p-4 rounded-sm hover:bg-[#0b1730]/60 transition-colors">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-neon-blue font-bold text-sm">
+                                                    {item.operator}
+                                                </span>
+                                                {item.operatorPhone && (
+                                                    <span className="text-blue-300 text-xs font-mono">
+                                                        {item.operatorPhone}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-gray-400 font-mono text-xs">{item.time}</span>
+                                        </div>
+                                        <div className="text-white text-sm leading-relaxed pl-1 border-l-2 border-blue-500/20 ml-1">
+                                            {item.content}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-blue-300/50 text-sm">
+                                    暂无任务反馈记录
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

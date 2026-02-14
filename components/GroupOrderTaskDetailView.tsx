@@ -1,15 +1,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { StyledButton, StyledInput, StyledSelect } from './UI';
-import { SearchIcon, RefreshCwIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CheckIcon, XIcon } from './Icons';
+import { SearchIcon, RefreshCwIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CheckIcon, XIcon, UserIcon } from './Icons';
 import { INNER_MONGOLIA_CITIES } from '../constants';
 
 interface GroupOrderTaskDetailViewProps {
     task: any; // Using any for the derived task object
     onBack: () => void;
-    initialTab?: 'info' | 'flow' | 'process';
+    initialTab?: 'info' | 'flow' | 'process' | 'feedback';
     triggerTimestamp?: number;
-    onTabChange?: (tab: 'info' | 'flow' | 'process') => void;
+    onTabChange?: (tab: 'info' | 'flow' | 'process' | 'feedback') => void;
 }
 
 const Th = ({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
@@ -97,7 +97,7 @@ const PENDING_LINE = "#4b5563";
 const ACTIVE_GLOW = "shadow-[0_0_20px_rgba(0,210,255,0.5)]";
 
 export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> = ({ task, onBack, initialTab = 'info', triggerTimestamp, onTabChange }) => {
-    const [activeTab, setActiveTab] = useState<'info' | 'flow' | 'process'>(initialTab);
+    const [activeTab, setActiveTab] = useState<'info' | 'flow' | 'process' | 'feedback'>(initialTab);
     const [tickets, setTickets] = useState<any[]>([]);
     const [filters, setFilters] = useState({ keyword: '', status: '' });
     const [pagination, setPagination] = useState({ currentPage: 1, pageSize: 10 });
@@ -112,6 +112,12 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
     const [lastAppointment, setLastAppointment] = useState<{start: string, end: string} | null>(null);
     const [newStart, setNewStart] = useState('');
     const [newEnd, setNewEnd] = useState('');
+
+    // Feedback Tab State
+    const [feedbackList, setFeedbackList] = useState([
+        { id: 1, time: '2026-02-10 14:30:00', operator: task.manager || '张宏伟', content: '已联系客户，客户表示下午3点方便上门核查线路情况。' }
+    ]);
+    const [feedbackInput, setFeedbackInput] = useState('');
 
     useEffect(() => {
         if (initialTab) setActiveTab(initialTab);
@@ -134,9 +140,11 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
              initialLogs.unshift({ time: '2026-02-12 10:00:00', operator: '系统', type: '任务完成', desc: '关联工单全部归档，任务自动完成' });
         }
         setTaskLogs(initialLogs);
+        
+        // Reset Feedback for demo if task changes significantly (optional, keeping static mock for now)
     }, [task.id, triggerTimestamp]);
 
-    const handleTabClick = (tab: 'info' | 'flow' | 'process') => {
+    const handleTabClick = (tab: 'info' | 'flow' | 'process' | 'feedback') => {
         setActiveTab(tab);
         if (onTabChange) onTabChange(tab);
     };
@@ -182,6 +190,23 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
         
         // Visual feedback - logic simplified to just log, as UI update (Card appearing) is the feedback
         console.log("预约/改约成功");
+    };
+
+    const handleSubmitFeedback = () => {
+        if (!feedbackInput.trim()) return;
+        const now = new Date();
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        
+        const newEntry = {
+            id: Date.now(),
+            time: timeStr,
+            operator: '当前用户', // Mock current user
+            content: feedbackInput.trim()
+        };
+        
+        setFeedbackList(prev => [newEntry, ...prev]);
+        setFeedbackInput('');
     };
 
     const filteredData = useMemo(() => {
@@ -249,13 +274,19 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                 {/* Navigation Tabs */}
                 <div className="flex items-end w-full">
                     <div className="w-6 border-b border-blue-500/20"></div>
-                    {['任务信息', '流程信息', '任务处理'].map((tab) => {
-                        const tabId = tab === '任务信息' ? 'info' : tab === '流程信息' ? 'flow' : 'process';
+                    {['任务信息', '流程信息', '任务处理', '阶段反馈'].map((tab) => {
+                        const tabMap: Record<string, 'info' | 'flow' | 'process' | 'feedback'> = {
+                            '任务信息': 'info',
+                            '流程信息': 'flow',
+                            '任务处理': 'process',
+                            '阶段反馈': 'feedback'
+                        };
+                        const tabId = tabMap[tab];
                         const isActive = activeTab === tabId;
                         return (
                             <button
                                 key={tab}
-                                onClick={() => handleTabClick(tabId as any)}
+                                onClick={() => handleTabClick(tabId)}
                                 className={`
                                     px-6 py-2 text-sm font-medium transition-all relative rounded-t-sm
                                     ${isActive 
@@ -578,6 +609,50 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'feedback' && (
+                    <div className="flex flex-col h-full space-y-4 animate-[fadeIn_0.3s_ease-out] overflow-hidden">
+                        {/* Input Area */}
+                        <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-5 shadow-sm shrink-0">
+                            <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4">新增反馈</h3>
+                            <div className="flex flex-col gap-4">
+                                <textarea 
+                                    className="w-full h-24 bg-[#0b1730]/40 border border-blue-500/30 rounded-sm p-3 text-white text-sm focus:outline-none focus:border-neon-blue transition-colors resize-none placeholder-blue-300/30"
+                                    placeholder="请输入阶段反馈信息..."
+                                    value={feedbackInput}
+                                    onChange={(e) => setFeedbackInput(e.target.value)}
+                                />
+                                <div className="flex justify-end">
+                                    <StyledButton variant="primary" onClick={handleSubmitFeedback} className="px-6">提交反馈</StyledButton>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* List Area */}
+                        <div className="flex-1 bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-5 shadow-sm flex flex-col overflow-hidden">
+                            <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4 shrink-0">反馈记录</h3>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                                {feedbackList.length > 0 ? (
+                                    feedbackList.sort((a, b) => new Date(b.time.replace(' ', 'T')).getTime() - new Date(a.time.replace(' ', 'T')).getTime()).map(item => (
+                                        <div key={item.id} className="bg-[#0b1730]/40 border border-blue-500/10 p-3 rounded-sm">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-blue-300 font-bold text-xs">{item.operator}</span>
+                                                </div>
+                                                <span className="text-gray-400 font-mono text-xs">{item.time}</span>
+                                            </div>
+                                            <div className="text-white text-sm leading-relaxed pl-1">{item.content}</div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-blue-300/50 text-sm">
+                                        暂无反馈记录
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

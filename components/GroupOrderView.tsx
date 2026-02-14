@@ -67,7 +67,7 @@ export interface TabItem {
     id: string;
     label: string;
     type?: 'module' | 'detail' | 'task-detail';
-    initialTab?: 'info' | 'flow' | 'process';
+    initialTab?: 'info' | 'flow' | 'process' | 'feedback';
     triggerTimestamp?: number; // Used to force refresh when clicking same item
 }
 
@@ -261,7 +261,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     };
 
     // Handle opening Group Order Detail in local tab
-    const handleOpenOrderDetailLocal = (row: GroupOrderRecord, targetTab: 'info' | 'flow' | 'process' = 'info') => {
+    const handleOpenOrderDetailLocal = (row: GroupOrderRecord, targetTab: 'info' | 'flow' | 'process' | 'feedback' = 'info') => {
         const tabId = `detail-${row.id}`;
         const timestamp = Date.now();
         
@@ -280,6 +280,31 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         });
     };
 
+    // Handle update order from detail view
+    const handleUpdateOrder = (tabId: string, updates: Partial<GroupOrderRecord>) => {
+        setViewState(prev => {
+            // Update detail record
+            const oldDetail = prev.detailRecords[tabId];
+            if (!oldDetail) return prev; // Should not happen
+
+            const newDetail = { ...oldDetail, ...updates };
+            
+            // Update main data list as well to persist state
+            const newOrderData = prev.orderData.map(order => 
+                order.id === newDetail.id ? { ...order, ...updates } : order
+            );
+
+            return {
+                ...prev,
+                detailRecords: {
+                    ...prev.detailRecords,
+                    [tabId]: newDetail
+                },
+                orderData: newOrderData
+            };
+        });
+    };
+
     // Handle opening related order from task view
     const handleOpenRelatedOrder = (groupOrderId: string) => {
         const order = orderData.find((o: any) => o.groupOrderId === groupOrderId);
@@ -289,7 +314,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     };
 
     // Handle opening Task Detail in local tab
-    const handleOpenTaskDetailLocal = (task: any, targetTab: 'info' | 'flow' | 'process' = 'info') => {
+    const handleOpenTaskDetailLocal = (task: any, targetTab: 'info' | 'flow' | 'process' | 'feedback' = 'info') => {
         const tabId = `task-detail-${task.id}`;
         const timestamp = Date.now();
         
@@ -310,7 +335,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     };
 
     // Handler to preserve inner tab state when switching inside details
-    const handleDetailTabChange = (tabId: string, newTab: 'info' | 'flow' | 'process') => {
+    const handleDetailTabChange = (tabId: string, newTab: 'info' | 'flow' | 'process' | 'feedback') => {
         setTabs((prev: TabItem[]) => prev.map(t => t.id === tabId ? { ...t, initialTab: newTab } : t));
     };
 
@@ -634,6 +659,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                 initialTab={getActiveTabProps()?.initialTab}
                                 triggerTimestamp={getActiveTabProps()?.triggerTimestamp}
                                 onTabChange={(tab) => handleDetailTabChange(activeTabId, tab)}
+                                onUpdateOrder={(updates) => handleUpdateOrder(activeTabId, updates)}
                             />
                         </div>
                     ) : activeTabId.startsWith('task-detail-') && taskDetailRecords[activeTabId] ? (
