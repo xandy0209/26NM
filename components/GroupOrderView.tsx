@@ -1137,7 +1137,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
                                     {/* Delete Confirmation Modal */}
                                     {deleteConfirmId && (
-                                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[1px]">
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
                                             <div className="w-[300px] bg-[#0f172a] border border-blue-500/30 text-blue-100 font-sans shadow-[0_0_30px_rgba(0,0,0,0.5)] rounded-sm">
                                                 <div className="p-6 text-center space-y-4">
                                                     <div className="text-red-400 mx-auto w-10 h-10 flex items-center justify-center rounded-full bg-red-500/10 border border-red-500/30">
