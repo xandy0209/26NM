@@ -802,9 +802,6 @@ const StatusCard = ({ label, count, active, onClick }: { label: string, count: s
                 
                 {/* Right Gradient Line - Top to Bottom fade */}
                 <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                
-                {/* Bottom Glow Effect - Upward fade */}
-                <div className="absolute bottom-0 left-0 right-0 h-[10px] bg-gradient-to-t from-[#00d2ff]/30 to-transparent pointer-events-none" />
             </>
         )}
         
