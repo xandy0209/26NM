@@ -973,12 +973,21 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                                 <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.deliveryDeadline}</td>
                                                                 <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.completionTime}</td>
                                                                 <td className="p-3 text-center border-b border-blue-500/10 sticky right-0 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
-                                                                    <button 
-                                                                        className="text-neon-blue hover:text-white hover:underline"
-                                                                        onClick={() => handleOpenOrderDetailLocal(row, 'process')}
-                                                                    >
-                                                                        {row.status === '待受理' ? '受理' : '处理'}
-                                                                    </button>
+                                                                    {row.status === '已完成' || row.status === '撤单' ? (
+                                                                        <button 
+                                                                            className="text-neon-blue hover:text-white hover:underline"
+                                                                            onClick={() => handleOpenOrderDetailLocal(row, 'info')}
+                                                                        >
+                                                                            查看
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button 
+                                                                            className="text-neon-blue hover:text-white hover:underline"
+                                                                            onClick={() => handleOpenOrderDetailLocal(row, 'process')}
+                                                                        >
+                                                                            {row.status === '待受理' ? '受理' : '处理'}
+                                                                        </button>
+                                                                    )}
                                                                 </td>
                                                             </>
                                                         ) : (
