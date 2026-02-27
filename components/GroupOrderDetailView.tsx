@@ -299,7 +299,19 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
         if (initialTab) {
             setActiveTab(initialTab);
         }
-    }, [initialTab]);
+    }, [initialTab, triggerTimestamp]);
+
+    // Pre-fill City/County based on Order Level for Dispatch
+    useEffect(() => {
+        if (activeTab === 'process') {
+            if (order.level !== '省级' && order.city) {
+                setDispatchCity(order.city);
+            }
+            if ((order.level === '旗县级' || order.level === '网格级') && order.county) {
+                setDispatchCounty(order.county);
+            }
+        }
+    }, [activeTab, order.level, order.city, order.county]);
 
     // Effect: Update status to '待回单' if all tickets are not '活动'
     useEffect(() => {
@@ -780,12 +792,86 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                 <div className="flex items-center justify-between p-4 border-b border-blue-500/20 bg-transparent shrink-0">
                                     <div className="flex items-center gap-4 flex-wrap">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-white text-xs whitespace-nowrap">分派层级：</span>
-                                            <StyledSelect className="w-24 bg-[#0b1730]/50 h-[28px]" value={dispatchLevel} onChange={(e) => { setDispatchLevel(e.target.value); setDispatchCity(''); setDispatchCounty(''); setDispatchGrid(''); setDispatchManager(''); }}><option value="">请选择</option><option value="省级">省级</option><option value="地市级">地市级</option><option value="旗县级">旗县级</option><option value="网格级">网格级</option></StyledSelect>
+                                            <span className="text-white text-xs whitespace-nowrap">团单等级：</span>
+                                            <span className="text-white text-xs font-bold mr-2">{order.level}</span>
                                         </div>
-                                        {['地市级', '旗县级', '网格级'].includes(dispatchLevel) && (<div className="flex items-center gap-2"><span className="text-white text-xs whitespace-nowrap">地市：</span><StyledSelect className="w-28 bg-[#0b1730]/50 h-[28px]" value={dispatchCity} onChange={(e) => { setDispatchCity(e.target.value); setDispatchCounty(''); setDispatchGrid(''); setDispatchManager(''); }}><option value="">请选择</option>{CASCADING_CITIES.map(c => <option key={c} value={c}>{c}</option>)}</StyledSelect></div>)}
-                                        {['旗县级', '网格级'].includes(dispatchLevel) && (<div className="flex items-center gap-2"><span className="text-white text-xs whitespace-nowrap">旗县：</span><StyledSelect className="w-28 bg-[#0b1730]/50 h-[28px]" value={dispatchCounty} onChange={(e) => { setDispatchCounty(e.target.value); setDispatchGrid(''); setDispatchManager(''); }} disabled={!dispatchCity}><option value="">请选择</option>{(CASCADING_COUNTIES[dispatchCity] || CASCADING_COUNTIES['default']).map(c => <option key={c} value={c}>{c}</option>)}</StyledSelect></div>)}
-                                        {dispatchLevel === '网格级' && (<div className="flex items-center gap-2"><span className="text-white text-xs whitespace-nowrap">网格：</span><StyledSelect className="w-28 bg-[#0b1730]/50 h-[28px]" value={dispatchGrid} onChange={(e) => { setDispatchGrid(e.target.value); setDispatchManager(''); }} disabled={!dispatchCounty}><option value="">请选择</option>{(CASCADING_GRIDS[dispatchCounty] || CASCADING_GRIDS['default']).map(g => <option key={g} value={g}>{g}</option>)}</StyledSelect></div>)}
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white text-xs whitespace-nowrap">分派层级：</span>
+                                            <StyledSelect 
+                                                className="w-24 bg-[#0b1730]/50 h-[28px]" 
+                                                value={dispatchLevel} 
+                                                onChange={(e) => { 
+                                                    setDispatchLevel(e.target.value); 
+                                                    // Only reset downstream if they are NOT fixed by order level
+                                                    if (order.level === '省级') setDispatchCity(''); 
+                                                    if (order.level === '省级' || order.level === '地市级') setDispatchCounty('');
+                                                    setDispatchGrid(''); 
+                                                    setDispatchManager(''); 
+                                                }}
+                                            >
+                                                <option value="">请选择</option>
+                                                {(order.level === '省级' ? ['省级', '地市级', '旗县级', '网格级'] :
+                                                  order.level === '地市级' ? ['地市级', '旗县级', '网格级'] :
+                                                  order.level === '旗县级' ? ['旗县级', '网格级'] :
+                                                  order.level === '网格级' ? ['网格级'] : []).map(opt => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                ))}
+                                            </StyledSelect>
+                                        </div>
+                                        {['地市级', '旗县级', '网格级'].includes(dispatchLevel) && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-white text-xs whitespace-nowrap">地市：</span>
+                                                <StyledSelect 
+                                                    className="w-28 bg-[#0b1730]/50 h-[28px]" 
+                                                    value={dispatchCity} 
+                                                    onChange={(e) => { 
+                                                        setDispatchCity(e.target.value); 
+                                                        setDispatchCounty(''); 
+                                                        setDispatchGrid(''); 
+                                                        setDispatchManager(''); 
+                                                    }}
+                                                    disabled={order.level !== '省级'}
+                                                >
+                                                    <option value="">请选择</option>
+                                                    {CASCADING_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                </StyledSelect>
+                                            </div>
+                                        )}
+                                        {['旗县级', '网格级'].includes(dispatchLevel) && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-white text-xs whitespace-nowrap">旗县：</span>
+                                                <StyledSelect 
+                                                    className="w-28 bg-[#0b1730]/50 h-[28px]" 
+                                                    value={dispatchCounty} 
+                                                    onChange={(e) => { 
+                                                        setDispatchCounty(e.target.value); 
+                                                        setDispatchGrid(''); 
+                                                        setDispatchManager(''); 
+                                                    }} 
+                                                    disabled={!dispatchCity || order.level === '网格级'}
+                                                >
+                                                    <option value="">请选择</option>
+                                                    {(CASCADING_COUNTIES[dispatchCity] || CASCADING_COUNTIES['default']).map(c => <option key={c} value={c}>{c}</option>)}
+                                                </StyledSelect>
+                                            </div>
+                                        )}
+                                        {dispatchLevel === '网格级' && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-white text-xs whitespace-nowrap">网格：</span>
+                                                <StyledSelect 
+                                                    className="w-28 bg-[#0b1730]/50 h-[28px]" 
+                                                    value={dispatchGrid} 
+                                                    onChange={(e) => { 
+                                                        setDispatchGrid(e.target.value); 
+                                                        setDispatchManager(''); 
+                                                    }} 
+                                                    disabled={!dispatchCounty}
+                                                >
+                                                    <option value="">请选择</option>
+                                                    {(CASCADING_GRIDS[dispatchCounty] || CASCADING_GRIDS['default']).map(g => <option key={g} value={g}>{g}</option>)}
+                                                </StyledSelect>
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-2"><span className="text-white text-xs whitespace-nowrap">分派交付经理：</span><StyledSelect className="w-48 bg-[#0b1730]/50 h-[28px]" value={dispatchManager} onChange={(e) => setDispatchManager(e.target.value)} disabled={managerOptions.length === 0}><option value="">请选择</option>{managerOptions.map(m => (<option key={m} value={m.split(' ')[0]}>{m}</option>))}</StyledSelect></div>
                                         <StyledButton variant="primary" className="h-[28px] bg-[#07596C] border-[#5FBADD]" onClick={handleConfirmDispatch}>确认分派</StyledButton>
                                     </div>

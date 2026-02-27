@@ -261,6 +261,8 @@ export interface GroupOrderRecord {
   deliveryDeadline: string; // 交付时限
   completionTime: string; // 完成时间
   groupOrderId?: string; // 团单标识号
+  city?: string; // 地市
+  county?: string; // 旗县
 }
 
 export interface FilterState {

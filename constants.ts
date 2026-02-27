@@ -835,6 +835,11 @@ export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
         const completedTasks = (status === '已完成' || status === '待回单') ? totalTasks : (status === '待受理' ? 0 : Math.floor(Math.random() * totalTasks));
         const focusStatus = `${completedTasks}/${totalTasks}`;
 
+        const cityObj = INNER_MONGOLIA_CITIES[Math.floor(Math.random() * INNER_MONGOLIA_CITIES.length)];
+        const city = cityObj.name;
+        // Simple mock county logic
+        const county = `${city}辖区`; 
+
         data.push({
             id: `go-${i}`,
             isImportant: i % 5 === 0,
@@ -850,7 +855,9 @@ export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
             remainingTime: (status === '已完成' || status === '撤单') ? '-' : `${remainingDays}天`,
             receiptTime,
             deliveryDeadline: (status === '撤单') ? '-' : deliveryDeadline,
-            completionTime
+            completionTime,
+            city,
+            county
         });
     }
     return data;
