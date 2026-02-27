@@ -977,7 +977,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                                         {row.focusStatus}
                                                                     </span>
                                                                 </td>
-                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.assignedTasks}</td>
+                                                                <td className="p-3 text-center font-mono border-b border-blue-500/10">{row.unassignedTickets}</td>
                                                                 <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{row.groupOrderId}</td>
                                                                 <td className="p-3 border-b border-blue-500/10">
                                                                     <span 
