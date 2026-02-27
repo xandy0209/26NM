@@ -830,7 +830,7 @@ export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
         const inflightStr = status === '已完成' ? `0/1` : `${inflight}/${total === 0 ? 1 : total}`;
 
         // Ensure logical focusStatus: completed / total, where total >= completed
-        const totalTasks = Math.floor(Math.random() * 8) + 1; // 1 to 8 tasks
+        const totalTasks = Math.floor(Math.random() * 8) + 5; // 5 to 12 tasks
         // For '待回单', tasks should be 100% completed technically, but maybe not officially 'Done'
         const completedTasks = (status === '已完成' || status === '待回单') ? totalTasks : (status === '待受理' ? 0 : Math.floor(Math.random() * totalTasks));
         const focusStatus = `${completedTasks}/${totalTasks}`;
@@ -840,12 +840,16 @@ export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
         // Simple mock county logic
         const county = `${city}辖区`; 
 
+        const unassignedTickets = (status === '待受理') 
+            ? totalTasks 
+            : ((status === '处理中' && i % 4 === 0) ? Math.min(totalTasks, (i % 5) + 1) : 0);
+
         data.push({
             id: `go-${i}`,
             isImportant: i % 5 === 0,
             focusStatus: focusStatus,
             assignedTasks: status === '待受理' ? 0 : Math.floor(Math.random() * 5),
-            unassignedTickets: status === '待受理' ? Math.floor(Math.random() * 5) + 1 : 0,
+            unassignedTickets: unassignedTickets,
             name: names[nameIndex],
             level: levels[nameIndex],
             manager: managers[nameIndex],

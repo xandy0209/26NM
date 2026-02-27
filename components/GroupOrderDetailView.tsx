@@ -76,15 +76,8 @@ const generateDetailTickets = (order: GroupOrderRecord, count: number = 46) => {
     };
     
     // Determine how many tickets should be unassigned
-    let unassignedTarget = 0;
-    if (order.status === '待受理') {
-        unassignedTarget = count;
-    } else if (order.status === '已完成' || order.status === '撤单') {
-        unassignedTarget = 0;
-    } else {
-        // Processing: Use the record's unassigned count, or a default fallback
-        unassignedTarget = order.unassignedTickets !== undefined ? order.unassignedTickets : 5;
-    }
+    // This now directly and consistently uses the value from the parent order record.
+    const unassignedTarget = order.unassignedTickets !== undefined ? order.unassignedTickets : 0;
 
     return Array.from({ length: count }).map((_, i) => {
         const city = cities[i % cities.length];
@@ -324,8 +317,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
     }, [tickets, orderStatus]);
 
     // Derived Status
-    const unassignedCount = useMemo(() => tickets.filter(t => t.dispatchManager === '待分派').length, [tickets]);
-    const processLogs = useMemo(() => generateProcessLogs(order, orderStatus, unassignedCount, tickets.length, completionTimestamp), [order, orderStatus, unassignedCount, tickets.length, completionTimestamp]);
+    const processLogs = useMemo(() => generateProcessLogs(order, orderStatus, order.unassignedTickets, tickets.length, completionTimestamp), [order, orderStatus, tickets.length, completionTimestamp]);
 
     // Derived Manager Options based on cascading selection
     const managerOptions = useMemo(() => {
@@ -479,7 +471,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
             if (status === '撤单') return 'completed'; // Treat cancelled as completed step (automatically finished current stage)
             if (status === '处理中') {
                 // If there are unassigned tickets, we are actively processing assignments
-                if (unassignedCount > 0) return 'active';
+                if (order.unassignedTickets > 0) return 'active';
                 // If all assigned, this step is effectively done, waiting for reply
                 return 'completed';
             }
@@ -490,7 +482,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
             if (status === '已完成') return 'completed';
             if (status === '撤单') return 'pending'; // Future stage is PENDING if cancelled
             if (status === '待回单') return 'active';
-            if (status === '处理中' && unassignedCount === 0) return 'active';
+            if (status === '处理中' && order.unassignedTickets === 0) return 'active';
             return 'pending';
         }
 
@@ -595,7 +587,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                 <div className="flex items-center gap-2"><span className="text-white w-24 text-right">团单等级：</span><span className="text-white">{order.level}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-white w-24 text-right">交付经理：</span><span className="text-white">{order.manager}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-white w-24 text-right">竣工率：</span><span className="text-white">{orderStatus === '已完成' ? '100.00%' : order.completionRate}</span></div>
-                                <div className="flex items-center gap-2"><span className="text-white w-24 text-right">在途量/派单量：</span><span className="text-white">{orderStatus === '已完成' ? '0/46' : `${46 - unassignedCount}/46`}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-white w-24 text-right">在途量/派单量：</span><span className="text-white">{orderStatus === '已完成' ? '0/46' : `${46 - (order.unassignedTickets || 0)}/46`}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-white w-24 text-right">剩余时限：</span><span className="text-white">{orderStatus === '已完成' ? '-' : order.remainingTime}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-white w-24 text-right">网络侧收单时间：</span><span className="text-white font-mono">{order.receiptTime}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-white w-24 text-right">交付时限：</span><span className="text-white font-mono">{order.deliveryDeadline}</span></div>
@@ -608,7 +600,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                 <h3 className="text-sm font-bold text-neon-blue flex items-center h-4"><div className="w-1 h-3.5 bg-neon-blue mr-2"></div>团单工单清单</h3>
                                 <div className="flex items-center gap-2 ml-4">
                                     <button onClick={() => setSubTab('all')} className={`px-4 py-1 rounded-full text-xs transition-colors border ${subTab === 'all' ? 'bg-[#162B4D] border-blue-500 text-white shadow-sm' : 'border-transparent text-gray-400 hover:text-white'}`}>全部 ({tickets.length})</button>
-                                    <button onClick={() => setSubTab('unassigned')} className={`px-4 py-1 rounded-full text-xs transition-colors border ${subTab === 'unassigned' ? 'bg-[#162B4D] border-blue-500 text-white shadow-sm' : 'border-transparent text-gray-400 hover:text-white'}`}>未分派工单 ({unassignedCount})</button>
+                                    <button onClick={() => setSubTab('unassigned')} className={`px-4 py-1 rounded-full text-xs transition-colors border ${subTab === 'unassigned' ? 'bg-[#162B4D] border-blue-500 text-white shadow-sm' : 'border-transparent text-gray-400 hover:text-white'}`}>未分派工单 ({order.unassignedTickets})</button>
                                 </div>
                             </div>
                             {/* ... Filter Bar and Table ... */}
@@ -752,7 +744,8 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
 
                 {/* --- TAB: PROCESS --- */}
                 {activeTab === 'process' && (
-                    <div className="bg-transparent border border-blue-500/20 rounded-sm shadow-[0_0_15px_rgba(0,0,0,0.1)] flex flex-col h-full animate-[fadeIn_0.3s_ease-out] overflow-hidden">
+                    <div className="bg-transparent border border-blue-500/20 rounded-sm shadow-[0_0_15px_rgba(0,0,0,0.1)] flex flex-col h-full animate-[fadeIn_0.3s_ease-out] overflow-hidden relative">
+
                         {/* Process Tab Content ... (rest of the file remains unchanged in logic) */}
                         {/* ... omitted for brevity as change is only in outer container style ... */}
                         {/* Re-including the process tab content for completeness */}
@@ -787,7 +780,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                     </div>
                                 </div>
                             </div>
-                        ) : (orderStatus !== '待回单' && orderStatus !== '已完成' && unassignedCount > 0) ? (
+                        ) : (orderStatus === '处理中' && order.unassignedTickets > 0) ? (
                             <>
                                 <div className="flex items-center justify-between p-4 border-b border-blue-500/20 bg-transparent shrink-0">
                                     <div className="flex items-center gap-4 flex-wrap">

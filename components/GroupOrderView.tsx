@@ -100,6 +100,10 @@ export interface GroupOrderViewState {
         endDate: string;
     };
     pagination: { currentPage: number; pageSize: number; };
+    currentUser: {
+        level: string;
+        city: string;
+    };
 }
 
 // Initial State Generator
@@ -119,7 +123,8 @@ export const getInitialGroupOrderState = (): GroupOrderViewState => ({
     managerFilters: { level: '', city: '', county: '' },
     orderFilters: { keyword: '', status: '', level: '', startDate: '', endDate: '' },
     taskFilters: { keyword: '', status: '', startDate: '', endDate: '' },
-    pagination: { currentPage: 1, pageSize: 15 }
+    pagination: { currentPage: 1, pageSize: 15 },
+    currentUser: { level: '省级', city: '呼和浩特市' }
 });
 
 interface GroupOrderViewProps {
@@ -153,7 +158,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         managerFilters,
         orderFilters, 
         taskFilters, 
-        pagination 
+        pagination,
+        currentUser
     } = viewState;
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
@@ -195,6 +201,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     const setOrderFilters = (val: any) => setViewState(prev => ({ ...prev, orderFilters: typeof val === 'function' ? val(prev.orderFilters) : val }));
     const setTaskFilters = (val: any) => setViewState(prev => ({ ...prev, taskFilters: typeof val === 'function' ? val(prev.taskFilters) : val }));
     const setPagination = (val: any) => setViewState(prev => ({ ...prev, pagination: typeof val === 'function' ? val(prev.pagination) : val }));
+    const setCurrentUser = (val: any) => setViewState(prev => ({ ...prev, currentUser: typeof val === 'function' ? val(prev.currentUser) : val }));
 
     const handleSidebarClick = (module: 'order' | 'task' | 'config') => {
         const labels: Record<string, string> = {
@@ -841,7 +848,25 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                         <div className="flex items-center gap-3 ml-4">
                                             <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
                                             <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => { setManagerKeyword(''); setManagerFilters({ level: '', city: '', county: '' }); }} icon={<RefreshCwIcon />}>重置</StyledButton>
-                                            <StyledButton variant="toolbar" className="bg-[#07596C] border-[#5FBADD]" icon={<PlusCircleIcon />} onClick={() => setIsManagerModalOpen(true)}>添加交付经理</StyledButton>
+                                            
+                                            {/* Simulate current user role */}
+                                            <div className="flex items-center gap-2 ml-4 border-l border-blue-500/30 pl-4">
+                                                <label className="text-blue-200 text-xs">当前用户(模拟):</label>
+                                                <StyledSelect 
+                                                    className="w-24 bg-[#0b1730]/50 h-[28px] text-xs"
+                                                    value={currentUser.level}
+                                                    onChange={(e) => setCurrentUser({ ...currentUser, level: e.target.value })}
+                                                >
+                                                    <option value="省级">省级</option>
+                                                    <option value="地市级">地市级</option>
+                                                    <option value="旗县级">旗县级</option>
+                                                    <option value="网格级">网格级</option>
+                                                </StyledSelect>
+                                            </div>
+
+                                            {(currentUser.level === '省级' || currentUser.level === '地市级') && (
+                                                <StyledButton variant="toolbar" className="bg-[#07596C] border-[#5FBADD]" icon={<PlusCircleIcon />} onClick={() => setIsManagerModalOpen(true)}>添加交付经理</StyledButton>
+                                            )}
                                         </div>
                                     </>
                                 )}
