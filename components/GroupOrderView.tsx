@@ -100,10 +100,6 @@ export interface GroupOrderViewState {
         endDate: string;
     };
     pagination: { currentPage: number; pageSize: number; };
-    currentUser: {
-        level: string;
-        city: string;
-    };
 }
 
 // Initial State Generator
@@ -123,8 +119,7 @@ export const getInitialGroupOrderState = (): GroupOrderViewState => ({
     managerFilters: { level: '', city: '', county: '' },
     orderFilters: { keyword: '', status: '', level: '', startDate: '', endDate: '' },
     taskFilters: { keyword: '', status: '', startDate: '', endDate: '' },
-    pagination: { currentPage: 1, pageSize: 15 },
-    currentUser: { level: '省级', city: '呼和浩特市' }
+    pagination: { currentPage: 1, pageSize: 15 }
 });
 
 interface GroupOrderViewProps {
@@ -158,8 +153,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         managerFilters,
         orderFilters, 
         taskFilters, 
-        pagination,
-        currentUser
+        pagination
     } = viewState;
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
@@ -201,7 +195,6 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     const setOrderFilters = (val: any) => setViewState(prev => ({ ...prev, orderFilters: typeof val === 'function' ? val(prev.orderFilters) : val }));
     const setTaskFilters = (val: any) => setViewState(prev => ({ ...prev, taskFilters: typeof val === 'function' ? val(prev.taskFilters) : val }));
     const setPagination = (val: any) => setViewState(prev => ({ ...prev, pagination: typeof val === 'function' ? val(prev.pagination) : val }));
-    const setCurrentUser = (val: any) => setViewState(prev => ({ ...prev, currentUser: typeof val === 'function' ? val(prev.currentUser) : val }));
 
     const handleSidebarClick = (module: 'order' | 'task' | 'config') => {
         const labels: Record<string, string> = {
@@ -493,7 +486,10 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         }
 
         data = data.filter((item: any) => {
-            const matchesKeyword = !taskFilters.keyword || item.name.includes(taskFilters.keyword) || item.taskId.includes(taskFilters.keyword);
+            const matchesKeyword = !taskFilters.keyword || 
+                item.name.includes(taskFilters.keyword) || 
+                item.taskId.includes(taskFilters.keyword) ||
+                (item.groupOrderId && item.groupOrderId.includes(taskFilters.keyword));
             const matchesStatus = !taskFilters.status || item.status === taskFilters.status;
             return matchesKeyword && matchesStatus;
         });
@@ -753,7 +749,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                         <div className="flex items-center gap-2">
                                             <label className="text-blue-200">关键字</label>
                                             <StyledInput 
-                                                placeholder="请输入任务标识号/团单名称" 
+                                                placeholder="请输入团单标识号/团单名称/任务标识号" 
                                                 className="w-80 bg-[#0b1730]/50" 
                                                 value={taskFilters.keyword}
                                                 onChange={(e) => setTaskFilters({...taskFilters, keyword: e.target.value})}
@@ -849,24 +845,9 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                             <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
                                             <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => { setManagerKeyword(''); setManagerFilters({ level: '', city: '', county: '' }); }} icon={<RefreshCwIcon />}>重置</StyledButton>
                                             
-                                            {/* Simulate current user role */}
-                                            <div className="flex items-center gap-2 ml-4 border-l border-blue-500/30 pl-4">
-                                                <label className="text-blue-200 text-xs">当前用户(模拟):</label>
-                                                <StyledSelect 
-                                                    className="w-24 bg-[#0b1730]/50 h-[28px] text-xs"
-                                                    value={currentUser.level}
-                                                    onChange={(e) => setCurrentUser({ ...currentUser, level: e.target.value })}
-                                                >
-                                                    <option value="省级">省级</option>
-                                                    <option value="地市级">地市级</option>
-                                                    <option value="旗县级">旗县级</option>
-                                                    <option value="网格级">网格级</option>
-                                                </StyledSelect>
-                                            </div>
-
-                                            {(currentUser.level === '省级' || currentUser.level === '地市级') && (
+                                            <div className="ml-4 pl-4 border-l border-blue-500/30">
                                                 <StyledButton variant="toolbar" className="bg-[#07596C] border-[#5FBADD]" icon={<PlusCircleIcon />} onClick={() => setIsManagerModalOpen(true)}>添加交付经理</StyledButton>
-                                            )}
+                                            </div>
                                         </div>
                                     </>
                                 )}

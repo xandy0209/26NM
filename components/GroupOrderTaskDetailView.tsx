@@ -432,10 +432,10 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                 )}
                 
                 {activeTab === 'flow' && (
-                    <div className="flex flex-col gap-4 h-full overflow-hidden">
+                    <div className="flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar pr-1">
                         {/* Flow Chart Section - Transparent Container */}
-                        <div className="bg-transparent border border-blue-500/20 rounded-sm p-8 shadow-sm flex flex-col items-center justify-center min-h-[200px] shrink-0">
-                             <div className="w-full flex justify-start mb-8">
+                        <div className="bg-transparent border border-blue-500/20 rounded-sm pt-4 px-5 pb-16 shadow-sm flex flex-col items-center shrink-0">
+                             <div className="w-full flex justify-start mb-6">
                                 <div className="border-l-4 border-neon-blue pl-3 text-white font-bold text-sm">流程进度</div>
                              </div>
                              
@@ -472,11 +472,11 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                         </div>
 
                         {/* Logs Section - Transparent Container */}
-                        <div className="bg-transparent border border-blue-500/20 rounded-sm flex-1 flex flex-col min-h-0 overflow-hidden">
+                        <div className="bg-transparent border border-blue-500/20 rounded-sm shrink-0 flex flex-col mb-4">
                              <div className="p-4 border-b border-blue-500/20 shrink-0">
                                 <div className="border-l-4 border-neon-blue pl-3 text-white font-bold text-sm">操作记录</div>
                              </div>
-                             <div className="flex-1 overflow-auto custom-scrollbar p-0">
+                             <div className="p-0">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
                                     <thead className="bg-[#0c2242] text-white sticky top-0 z-10">
                                         <tr>
@@ -503,94 +503,98 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                 )}
 
                 {activeTab === 'process' && (
-                    <div className="flex flex-col items-center justify-center h-full p-4 animate-[fadeIn_0.3s_ease-out] w-full">
+                    <div className="bg-transparent border border-blue-500/20 rounded-sm shadow-[0_0_15px_rgba(0,0,0,0.1)] flex flex-col h-full animate-[fadeIn_0.3s_ease-out] overflow-hidden relative w-full">
                         {/* Scenario 1: Pending Acceptance */}
                         {taskStatus === '待受理' && (
-                            <div className="flex flex-col items-center justify-center p-8 bg-[#13284c]/30 border border-blue-500/20 rounded-sm shadow-xl max-w-[600px] w-full">
-                                <div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 mb-6 border border-yellow-500/40 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
+                                <div className="flex flex-col items-center justify-center p-8 bg-[#13284c]/30 border border-blue-500/20 rounded-sm shadow-xl max-w-[600px] w-full">
+                                    <div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 mb-6 border border-yellow-500/40 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-white mb-2 tracking-wide">任务待受理</h3>
+                                    <p className="text-blue-300 text-sm mb-8 text-center max-w-md leading-relaxed">
+                                        当前任务尚未受理，请确认任务信息无误后，点击下方按钮进行受理。受理后将进入集中预约环节。
+                                    </p>
+                                    <StyledButton 
+                                        variant="primary" 
+                                        className="px-10 py-2.5 h-auto text-base font-bold tracking-wide shadow-lg hover:shadow-cyan-500/30 transition-all duration-300"
+                                        onClick={handleAcceptTask}
+                                        icon={<CheckCircleIcon />}
+                                    >
+                                        确认受理
+                                    </StyledButton>
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2 tracking-wide">任务待受理</h3>
-                                <p className="text-blue-300 text-sm mb-8 text-center max-w-md leading-relaxed">
-                                    当前任务尚未受理，请确认任务信息无误后，点击下方按钮进行受理。受理后将进入集中预约环节。
-                                </p>
-                                <StyledButton 
-                                    variant="primary" 
-                                    className="px-10 py-2.5 h-auto text-base font-bold tracking-wide shadow-lg hover:shadow-cyan-500/30 transition-all duration-300"
-                                    onClick={handleAcceptTask}
-                                    icon={<CheckCircleIcon />}
-                                >
-                                    确认受理
-                                </StyledButton>
                             </div>
                         )}
 
                         {/* Scenario 2: Processing (Centralized Appointment & Completion) */}
                         {taskStatus === '处理中' && (
-                            <div className="flex flex-col gap-6 w-full max-w-[720px]">
-                                {/* Top Card: Last Appointment Status - Only show if appointment exists (submitted) */}
-                                {lastAppointment && (
-                                    <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-6 flex items-center justify-between shadow-sm animate-[fadeIn_0.3s_ease-out]">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center text-neon-blue border border-blue-500/30">
-                                                <ClockIcon />
-                                            </div>
-                                            <div>
-                                                <div className="text-blue-300 text-xs mb-1">上次预约/改约时间</div>
-                                                <div className="text-xl font-bold text-white tracking-wide font-mono">
-                                                    {lastAppointment.start} 至 {lastAppointment.end}
+                            <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
+                                <div className="flex flex-col gap-6 w-full max-w-[720px]">
+                                    {/* Top Card: Last Appointment Status - Only show if appointment exists (submitted) */}
+                                    {lastAppointment && (
+                                        <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-6 flex items-center justify-between shadow-sm animate-[fadeIn_0.3s_ease-out]">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center text-neon-blue border border-blue-500/30">
+                                                    <ClockIcon />
+                                                </div>
+                                                <div>
+                                                    <div className="text-blue-300 text-xs mb-1">上次预约/改约时间</div>
+                                                    <div className="text-xl font-bold text-white tracking-wide font-mono">
+                                                        {lastAppointment.start} 至 {lastAppointment.end}
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <div>
+                                                <span className="px-3 py-1 bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40 text-sm rounded">已预约</span>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span className="px-3 py-1 bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40 text-sm rounded">已预约</span>
-                                        </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Bottom Card: Reschedule Form */}
-                                <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-8 shadow-sm space-y-6">
-                                    <h3 className="text-base font-bold text-white border-l-2 border-neon-blue pl-2 h-4 flex items-center">
-                                        {lastAppointment ? '修改集中预约时间' : '集中预约时间'}
-                                    </h3>
-                                    
-                                    <div className="space-y-3">
-                                        <div className="text-blue-300 text-sm">
-                                            {lastAppointment ? '请选择新的预约上门时间段：' : '请选择预约上门时间段：'}
+                                    {/* Bottom Card: Reschedule Form */}
+                                    <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-8 shadow-sm space-y-6">
+                                        <h3 className="text-base font-bold text-white border-l-2 border-neon-blue pl-2 h-4 flex items-center">
+                                            {lastAppointment ? '修改集中预约时间' : '集中预约时间'}
+                                        </h3>
+                                        
+                                        <div className="space-y-3">
+                                            <div className="text-blue-300 text-sm">
+                                                {lastAppointment ? '请选择新的预约上门时间段：' : '请选择预约上门时间段：'}
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <StyledInput 
+                                                    type="datetime-local" 
+                                                    className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
+                                                    value={newStart}
+                                                    onChange={(e) => setNewStart(e.target.value)}
+                                                />
+                                                <span className="text-white font-medium">至</span>
+                                                <StyledInput 
+                                                    type="datetime-local" 
+                                                    className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
+                                                    value={newEnd}
+                                                    onChange={(e) => setNewEnd(e.target.value)}
+                                                />
+                                                <StyledButton 
+                                                    id="reschedule-btn"
+                                                    variant="primary" 
+                                                    className="h-[38px] px-8 text-sm ml-4 font-bold tracking-wide"
+                                                    onClick={handleReschedule}
+                                                >
+                                                    {lastAppointment ? '确认改约' : '确认预约'}
+                                                </StyledButton>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <StyledInput 
-                                                type="datetime-local" 
-                                                className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
-                                                value={newStart}
-                                                onChange={(e) => setNewStart(e.target.value)}
-                                            />
-                                            <span className="text-white font-medium">至</span>
-                                            <StyledInput 
-                                                type="datetime-local" 
-                                                className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
-                                                value={newEnd}
-                                                onChange={(e) => setNewEnd(e.target.value)}
-                                            />
-                                            <StyledButton 
-                                                id="reschedule-btn"
-                                                variant="primary" 
-                                                className="h-[38px] px-8 text-sm ml-4 font-bold tracking-wide"
-                                                onClick={handleReschedule}
-                                            >
-                                                {lastAppointment ? '确认改约' : '确认预约'}
-                                            </StyledButton>
-                                        </div>
-                                    </div>
 
-                                    {/* Warning Box */}
-                                    <div className="bg-[#332a00]/30 border border-yellow-600/30 rounded p-4 flex items-start gap-3 mt-4">
-                                        <div className="text-yellow-500 mt-0.5 shrink-0">
-                                            <AlertTriangleIcon />
-                                        </div>
-                                        <div className="text-gray-300 text-sm leading-relaxed">
-                                            <span className="text-yellow-500 font-bold mr-1">操作提示：</span>
-                                            此操作将更新本次任务下所有关联工单的预约时间。请确保与客户沟通一致后再执行。
+                                        {/* Warning Box */}
+                                        <div className="bg-[#332a00]/30 border border-yellow-600/30 rounded p-4 flex items-start gap-3 mt-4">
+                                            <div className="text-yellow-500 mt-0.5 shrink-0">
+                                                <AlertTriangleIcon />
+                                            </div>
+                                            <div className="text-gray-300 text-sm leading-relaxed">
+                                                <span className="text-yellow-500 font-bold mr-1">操作提示：</span>
+                                                此操作将更新本次任务下所有关联工单的预约时间。请确保与客户沟通一致后再执行。
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -598,14 +602,34 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                         )}
 
                         {/* Scenario 3: Completed */}
-                        {(taskStatus === '已完成' || taskStatus === '撤单') && (
-                            <div className="flex flex-col items-center justify-center gap-4">
-                                <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.3)] ${taskStatus === '已完成' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-red-500/20 border-red-500 text-red-400'}`}>
-                                    {taskStatus === '已完成' ? <CheckIcon /> : <XIcon />}
+                        {taskStatus === '已完成' && (
+                            <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
+                                <div className="flex flex-col items-center justify-center gap-4">
+                                    <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center text-green-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div className="text-2xl font-bold text-white tracking-wide">任务已完成</div>
+                                    <div className="text-blue-300 text-sm max-w-md text-center">所有关联工单已处理完毕，任务自动归档。</div>
                                 </div>
-                                <div className="text-2xl font-bold text-white tracking-wide">任务{taskStatus}</div>
-                                <div className="text-blue-300 text-sm max-w-md text-center">
-                                    {taskStatus === '已完成' ? '所有关联工单已处理完毕，任务自动归档。' : '任务已撤销，流程终止。'}
+                            </div>
+                        )}
+
+                        {/* Scenario 4: Canceled */}
+                        {taskStatus === '撤单' && (
+                            <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
+                                <div className="flex flex-col items-center justify-center gap-6 p-10 bg-transparent rounded-lg border border-red-500/20 shadow-[0_0_40px_rgba(220,38,38,0.1)]">
+                                    <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/50 flex items-center justify-center text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </div>
+                                    <div className="text-center space-y-2">
+                                        <div className="text-2xl font-bold text-white tracking-wide">任务已撤销</div>
+                                        <div className="text-red-300/80 text-sm max-w-md text-center bg-red-900/20 px-6 py-3 rounded border border-red-500/20">任务已撤销，流程终止。</div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -615,20 +639,22 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                 {activeTab === 'feedback' && (
                     <div className="flex flex-col h-full space-y-4 animate-[fadeIn_0.3s_ease-out] overflow-hidden">
                         {/* Input Area */}
-                        <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-5 shadow-sm shrink-0">
-                            <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4">新增反馈</h3>
-                            <div className="flex flex-col gap-4">
-                                <textarea 
-                                    className="w-full h-24 bg-[#0b1730]/40 border border-blue-500/30 rounded-sm p-3 text-white text-sm focus:outline-none focus:border-neon-blue transition-colors resize-none placeholder-blue-300/30"
-                                    placeholder="请输入阶段反馈信息..."
-                                    value={feedbackInput}
-                                    onChange={(e) => setFeedbackInput(e.target.value)}
-                                />
-                                <div className="flex justify-end">
-                                    <StyledButton variant="primary" onClick={handleSubmitFeedback} className="px-6">提交反馈</StyledButton>
+                        {taskStatus !== '待受理' && taskStatus !== '已完成' && (
+                            <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-5 shadow-sm shrink-0">
+                                <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4">新增反馈</h3>
+                                <div className="flex flex-col gap-4">
+                                    <textarea 
+                                        className="w-full h-24 bg-[#0b1730]/40 border border-blue-500/30 rounded-sm p-3 text-white text-sm focus:outline-none focus:border-neon-blue transition-colors resize-none placeholder-blue-300/30"
+                                        placeholder="请输入阶段反馈信息..."
+                                        value={feedbackInput}
+                                        onChange={(e) => setFeedbackInput(e.target.value)}
+                                    />
+                                    <div className="flex justify-end">
+                                        <StyledButton variant="primary" onClick={handleSubmitFeedback} className="px-6">提交反馈</StyledButton>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* List Area */}
                         <div className="flex-1 bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-5 shadow-sm flex flex-col overflow-hidden">

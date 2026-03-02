@@ -230,7 +230,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
     // UI State
     const [activeTab, setActiveTab] = useState(initialTab);
     const [subTab, setSubTab] = useState<'all' | 'unassigned'>('all');
-    const [filters, setFilters] = useState({ crmNo: '', status: '', city: '' });
+    const [filters, setFilters] = useState({ keyword: '', status: '', city: '' });
     
     // Process Tab State
     const [processFilters, setProcessFilters] = useState({ crmNo: '', status: '', city: '', district: '', address: '' });
@@ -347,7 +347,15 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
     // Filter Logic for Info Tab
     const filteredData = useMemo(() => {
         let data = tickets;
-        if (filters.crmNo) data = data.filter(item => item.crmNo.includes(filters.crmNo));
+        if (filters.keyword) {
+            const lowerKeyword = filters.keyword.toLowerCase();
+            data = data.filter(item => 
+                (item.crmNo && item.crmNo.toLowerCase().includes(lowerKeyword)) ||
+                (item.bizId && item.bizId.toLowerCase().includes(lowerKeyword)) ||
+                (item.title && item.title.toLowerCase().includes(lowerKeyword)) ||
+                (item.address && item.address.toLowerCase().includes(lowerKeyword))
+            );
+        }
         if (filters.status) data = data.filter(item => item.status === filters.status);
         if (filters.city) data = data.filter(item => item.city === filters.city);
         if (subTab === 'unassigned') {
@@ -573,7 +581,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
             </div>
 
             {/* Main Content Area */}
-            <div className={`flex-1 flex flex-col ${activeTab === 'process' ? 'p-6 overflow-hidden' : 'p-6 space-y-6 overflow-y-auto custom-scrollbar'}`}>
+            <div className={`flex-1 flex flex-col p-6 ${activeTab === 'process' ? 'overflow-hidden' : 'space-y-6 overflow-y-auto custom-scrollbar'}`}>
                 
                 {/* --- TAB: INFO --- */}
                 {activeTab === 'info' && (
@@ -605,7 +613,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                             </div>
                             {/* ... Filter Bar and Table ... */}
                             <div className="flex items-center gap-3 pb-2 pt-1">
-                                <StyledInput placeholder="请输入CRM工单号" className="w-48 bg-[#0b1730]/50 h-[28px]" value={filters.crmNo} onChange={(e) => setFilters({...filters, crmNo: e.target.value})} />
+                                <StyledInput placeholder="CRM工单号/业务标识/工单标题/安装地址" className="w-80 bg-[#0b1730]/50 h-[28px]" value={filters.keyword} onChange={(e) => setFilters({...filters, keyword: e.target.value})} />
                                 <div className="relative">
                                     <StyledSelect className="w-32 bg-[#0b1730]/50 h-[28px]" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
                                         <option value="">工单状态</option>
@@ -617,7 +625,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                 </div>
                                 <div className="relative"><StyledSelect className="w-32 bg-[#0b1730]/50 h-[28px]" value={filters.city} onChange={(e) => setFilters({...filters, city: e.target.value})}><option value="">地市</option>{CASCADING_CITIES.map(c => <option key={c} value={c}>{c}</option>)}</StyledSelect></div>
                                 <StyledButton variant="toolbar" className="h-[28px]" icon={<SearchIcon />}>查询</StyledButton>
-                                <StyledButton variant="toolbar" className="h-[28px] bg-[#1e3a5f] border-gray-600" icon={<RefreshCwIcon />} onClick={() => setFilters({crmNo: '', status: '', city: ''})}>重置</StyledButton>
+                                <StyledButton variant="toolbar" className="h-[28px] bg-[#1e3a5f] border-gray-600" icon={<RefreshCwIcon />} onClick={() => setFilters({keyword: '', status: '', city: ''})}>重置</StyledButton>
                             </div>
                             <div className="w-full overflow-x-auto border border-blue-500/20 bg-[#0b1730]/30 custom-scrollbar">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
@@ -678,11 +686,12 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                 {/* --- TAB: FLOW --- */}
                 {activeTab === 'flow' && (
                     <div className="w-full flex flex-col gap-4 animate-[fadeIn_0.3s_ease-out]">
-                        <div className="bg-transparent border border-blue-500/20 rounded-sm p-5 shadow-[0_0_15px_rgba(0,0,0,0.1)]">
-                            <h3 className="text-sm font-bold text-neon-blue mb-10 flex items-center h-4 border-l-2 border-neon-blue pl-2">流程进度</h3>
-                            <div className="flex justify-center w-full px-20">
-                                <div className="flex items-center w-full max-w-[800px]">
-                                    {flowSteps.map((step, idx) => {
+                        <div className="bg-transparent border border-blue-500/20 rounded-sm pt-4 px-5 pb-16 shadow-sm flex flex-col items-center shrink-0">
+                            <div className="w-full flex justify-start mb-6">
+                                <div className="border-l-4 border-neon-blue pl-3 text-white font-bold text-sm">流程进度</div>
+                            </div>
+                            <div className="flex items-center w-full max-w-[800px]">
+                                {flowSteps.map((step, idx) => {
                                         const status = getStepStatus(idx);
                                         const isCompleted = status === 'completed';
                                         const isActive = status === 'active';
@@ -709,9 +718,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                             </React.Fragment>
                                         );
                                     })}
-                                </div>
                             </div>
-                            <div className="h-16"></div>
                         </div>
 
                         <div className="bg-transparent border border-blue-500/20 rounded-sm p-0 shadow-[0_0_15px_rgba(0,0,0,0.1)] overflow-hidden">
@@ -753,7 +760,10 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                             <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
                                 <div className="flex flex-col items-center justify-center gap-6 p-10 bg-transparent rounded-lg border border-red-500/20 shadow-[0_0_40px_rgba(220,38,38,0.1)]">
                                     <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/50 flex items-center justify-center text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
-                                        <XIcon />
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
                                     </div>
                                     <div className="text-center space-y-2">
                                         <div className="text-2xl font-bold text-white tracking-wide">团单已撤销</div>
@@ -919,7 +929,11 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                             <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
                                 {orderStatus === '已完成' ? (
                                     <div className="flex flex-col items-center justify-center gap-4">
-                                        <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center text-green-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]"><CheckIcon /></div>
+                                        <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center text-green-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
                                         <div className="text-2xl font-bold text-white tracking-wide">团单已完成</div>
                                         <div className="text-blue-300 text-sm max-w-md text-center">所有工单已处理完毕，团单流程已归档。您可以在“团单信息”标签页查看完整工单清单。</div>
                                     </div>
