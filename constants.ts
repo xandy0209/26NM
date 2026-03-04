@@ -777,7 +777,7 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
 export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
     const data: GroupOrderRecord[] = [];
     // Updated statuses to include '待回单'
-    const statuses: ('处理中' | '待受理' | '撤单' | '已完成' | '待回单')[] = ['处理中', '待受理', '处理中', '处理中', '待受理', '撤单', '已完成', '处理中', '处理中', '待受理', '已完成', '处理中', '撤单', '待回单', '待回单'];
+    const statuses: ('处理中' | '待受理' | '已撤单' | '已完成' | '待回单')[] = ['处理中', '待受理', '处理中', '处理中', '待受理', '已撤单', '已完成', '处理中', '处理中', '待受理', '已完成', '处理中', '已撤单', '待回单', '待回单'];
     const names = [
         "内蒙古自治区教育厅-省级教育专网",
         "呼和浩特市第一中学-智慧校园光纤",
@@ -817,10 +817,15 @@ export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
         const deliveryDeadline = deadlineDate.toISOString().replace('T', ' ').substring(0, 19);
 
         let completionTime = '';
+        let returnOrderTime = '';
         if (status === '已完成') {
             const compDate = new Date(receiptDate);
             compDate.setDate(compDate.getDate() + 2);
             completionTime = compDate.toISOString().replace('T', ' ').substring(0, 19);
+            
+            const returnDate = new Date(compDate);
+            returnDate.setHours(returnDate.getHours() - 1);
+            returnOrderTime = returnDate.toISOString().replace('T', ' ').substring(0, 19);
         }
 
         const remainingDays = (Math.random() * 5 + 1).toFixed(2);
@@ -856,10 +861,11 @@ export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {
             status,
             completionRate,
             inflightDispatched: inflightStr,
-            remainingTime: (status === '已完成' || status === '撤单') ? '-' : `${remainingDays}天`,
+            remainingTime: (status === '已完成' || status === '已撤单') ? '-' : `${remainingDays}天`,
             receiptTime,
-            deliveryDeadline: (status === '撤单') ? '-' : deliveryDeadline,
+            deliveryDeadline: (status === '已撤单') ? '-' : deliveryDeadline,
             completionTime,
+            returnOrderTime: (status === '已完成') ? returnOrderTime : '',
             city,
             county
         });

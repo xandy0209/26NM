@@ -253,13 +253,14 @@ export interface GroupOrderRecord {
   name: string; // 团单名称
   level: string; // 团单等级 (省级, 地市级, etc.)
   manager: string; // 交付经理
-  status: '处理中' | '待受理' | '撤单' | '已完成' | '待回单'; // 状态
+  status: '处理中' | '待受理' | '已撤单' | '已完成' | '待回单'; // 状态
   completionRate: string; // 竣工率
   inflightDispatched: string; // 在途量/派单量 e.g. "2/6"
   remainingTime: string; // 剩余时限 e.g. "3.85天" or "-"
   receiptTime: string; // 网络侧收单时间
   deliveryDeadline: string; // 交付时限
   completionTime: string; // 完成时间
+  returnOrderTime?: string; // 回单时间
   groupOrderId?: string; // 团单标识号
   city?: string; // 地市
   county?: string; // 旗县

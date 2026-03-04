@@ -42,16 +42,16 @@ const getGroupOrderId = (index: number) => `BN-${new Date().getFullYear()}0210-$
 
 // Mock Data for Managers
 const MOCK_MANAGERS = [
-    { id: 1, name: '张宏伟', phone: '13947180001', level: '省级', city: '呼和浩特市', county: '赛罕区', grid: '大学西路网格', company: '铁通公司' },
-    { id: 2, name: '赵铁柱', phone: '13800138000', level: '省级', city: '包头市', county: '昆区', grid: '阿尔丁大街网格', company: '中移铁通' },
-    { id: 3, name: '王坤鹏', phone: '15004820003', level: '地市级', city: '呼和浩特市', county: '新城区', grid: '成吉思汗大街网格', company: '润建通信' },
-    { id: 4, name: '刘伟', phone: '18447180004', level: '地市级', city: '呼和浩特市', county: '回民区', grid: '中山西路网格', company: '中移工程' },
-    { id: 5, name: '孙八', phone: '13600000005', level: '地市级', city: '包头市', county: '青山区', grid: '科学路网格', company: '立通通信' },
-    { id: 6, name: '王晓强', phone: '19804890007', level: '旗县级', city: '呼和浩特市', county: '赛罕区', grid: '人民路网格', company: '铁通公司' },
-    { id: 7, name: '张彦飞', phone: '18747740008', level: '旗县级', city: '呼和浩特市', county: '赛罕区', grid: '大学东路网格', company: '润建通信' },
-    { id: 8, name: '李明', phone: '15800000011', level: '网格级', city: '呼和浩特市', county: '赛罕区', grid: '大学西路网格', company: '铁通公司' },
-    { id: 9, name: '武楠', phone: '13500000012', level: '网格级', city: '呼和浩特市', county: '新城区', grid: '海拉尔东路网格', company: '中移铁通' },
-    { id: 10, name: '赵六', phone: '13400000013', level: '网格级', city: '包头市', county: '昆区', grid: '钢铁大街网格', company: '立通通信' },
+    { id: 1, name: '张宏伟', phone: '13947180001', level: '省级', city: '呼和浩特市', county: '赛罕区', grid: '大学西路网格', company: '铁通公司', businesses: [] },
+    { id: 2, name: '赵铁柱', phone: '13800138000', level: '省级', city: '包头市', county: '昆区', grid: '阿尔丁大街网格', company: '中移铁通', businesses: [] },
+    { id: 3, name: '王坤鹏', phone: '15004820003', level: '地市级', city: '呼和浩特市', county: '新城区', grid: '成吉思汗大街网格', company: '润建通信', businesses: ['专线', '宽带'] },
+    { id: 4, name: '刘伟', phone: '18447180004', level: '地市级', city: '呼和浩特市', county: '回民区', grid: '中山西路网格', company: '中移工程', businesses: ['宽带'] },
+    { id: 5, name: '孙八', phone: '13600000005', level: '地市级', city: '包头市', county: '青山区', grid: '科学路网格', company: '立通通信', businesses: ['专线'] },
+    { id: 6, name: '王晓强', phone: '19804890007', level: '旗县级', city: '呼和浩特市', county: '赛罕区', grid: '人民路网格', company: '铁通公司', businesses: ['终端'] },
+    { id: 7, name: '张彦飞', phone: '18747740008', level: '旗县级', city: '呼和浩特市', county: '赛罕区', grid: '大学东路网格', company: '润建通信', businesses: ['专线', '终端'] },
+    { id: 8, name: '李明', phone: '15800000011', level: '网格级', city: '呼和浩特市', county: '赛罕区', grid: '大学西路网格', company: '铁通公司', businesses: ['专线', '宽带', '终端'] },
+    { id: 9, name: '武楠', phone: '13500000012', level: '网格级', city: '呼和浩特市', county: '新城区', grid: '海拉尔东路网格', company: '中移铁通', businesses: ['宽带', '终端'] },
+    { id: 10, name: '赵六', phone: '13400000013', level: '网格级', city: '包头市', county: '昆区', grid: '钢铁大街网格', company: '立通通信', businesses: ['专线'] },
 ];
 
 const CASCADING_COUNTIES: Record<string, string[]> = {
@@ -90,6 +90,7 @@ export interface GroupOrderViewState {
         keyword: string;
         status: string;
         level: string;
+        isImportant: string;
         startDate: string;
         endDate: string;
     };
@@ -117,7 +118,7 @@ export const getInitialGroupOrderState = (): GroupOrderViewState => ({
     managerData: MOCK_MANAGERS,
     managerKeyword: '',
     managerFilters: { level: '', city: '', county: '' },
-    orderFilters: { keyword: '', status: '', level: '', startDate: '', endDate: '' },
+    orderFilters: { keyword: '', status: '', level: '', isImportant: '', startDate: '', endDate: '' },
     taskFilters: { keyword: '', status: '', startDate: '', endDate: '' },
     pagination: { currentPage: 1, pageSize: 15 }
 });
@@ -170,7 +171,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         city: '',
         county: '',
         grid: '',
-        company: ''
+        company: '',
+        businesses: [] as string[]
     });
 
     useEffect(() => {
@@ -355,7 +357,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             city: manager.city,
             county: manager.county,
             grid: manager.grid,
-            company: manager.company
+            company: manager.company,
+            businesses: manager.businesses || []
         });
         setEditingManagerId(manager.id);
         setIsManagerModalOpen(true);
@@ -374,7 +377,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
     // Add/Edit Manager Submit Handler
     const handleManagerSave = () => {
-        const { name, phone, level, city, county, grid, company } = newManagerForm;
+        const { name, phone, level, city, county, grid, company, businesses } = newManagerForm;
         const errors = [];
 
         if (!name) errors.push('姓名');
@@ -383,14 +386,17 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
         if (level === '地市级') {
             if (!city) errors.push('地市');
+            if (businesses.length === 0) errors.push('管辖业务');
         } else if (level === '旗县级') {
             if (!city) errors.push('地市');
             if (!county) errors.push('旗县');
+            if (businesses.length === 0) errors.push('管辖业务');
         } else if (level === '网格级') {
             if (!city) errors.push('地市');
             if (!county) errors.push('旗县');
             if (!grid) errors.push('网格');
             if (!company) errors.push('代维公司');
+            if (businesses.length === 0) errors.push('管辖业务');
         }
 
         if (errors.length > 0) {
@@ -433,7 +439,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             const matchesKeyword = !orderFilters.keyword || item.name.includes(orderFilters.keyword) || item.groupOrderId.includes(orderFilters.keyword);
             const matchesStatus = !orderFilters.status || item.status === orderFilters.status;
             const matchesLevel = !orderFilters.level || item.level === orderFilters.level;
-            return matchesKeyword && matchesStatus && matchesLevel;
+            const matchesImportant = !orderFilters.isImportant || String(item.isImportant) === orderFilters.isImportant;
+            return matchesKeyword && matchesStatus && matchesLevel && matchesImportant;
         });
 
         return data.sort((a: any, b: any) => {
@@ -456,7 +463,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             return Array.from({ length: total }).map((_, i) => {
                 const isCompleted = i < completed;
                 let status = isCompleted ? '已完成' : (order.status === '待受理' ? '待受理' : '处理中');
-                if (!isCompleted && order.status === '撤单') status = '已撤单';
+                if (!isCompleted && order.status === '已撤单') status = '已撤单';
 
                 return {
                     id: `${order.id}_t${i}`,
@@ -515,8 +522,8 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
     }, [managerData, managerKeyword, managerFilters]);
 
     // Calculate Active Counts (excluding Completed and Cancelled)
-    const activeOrderCount = useMemo(() => orderData.filter(o => o.status !== '已完成' && o.status !== '撤单').length, [orderData]);
-    const activeTaskCount = useMemo(() => allGeneratedTasks.filter(t => t.status !== '已完成' && t.status !== '撤单' && t.status !== '已撤单').length, [allGeneratedTasks]);
+    const activeOrderCount = useMemo(() => orderData.filter(o => o.status !== '已完成' && o.status !== '已撤单').length, [orderData]);
+    const activeTaskCount = useMemo(() => allGeneratedTasks.filter(t => t.status !== '已完成' && t.status !== '已撤单').length, [allGeneratedTasks]);
 
     // Current active data based on TAB ID
     const currentData = activeTabId === 'order' ? filteredOrderData : activeTabId === 'task' ? filteredTaskData : filteredManagerData;
@@ -534,7 +541,6 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         switch (status) {
             case '处理中': return <span className="px-3 py-0.5 rounded text-xs bg-[#2563eb]/20 text-[#60a5fa] border border-[#2563eb]/40">处理中</span>;
             case '待受理': return <span className="px-3 py-0.5 rounded text-xs bg-[#eab308]/20 text-[#fde047] border border-[#eab308]/40">待受理</span>;
-            case '撤单': return <span className="px-3 py-0.5 rounded text-xs bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/40">撤单</span>;
             case '已撤单': return <span className="px-3 py-0.5 rounded text-xs bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/40">已撤单</span>;
             case '已完成': return <span className="px-3 py-0.5 rounded text-xs bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40">已完成</span>;
             case '待回单': return <span className="px-3 py-0.5 rounded text-xs bg-[#8b5cf6]/20 text-[#a78bfa] border border-[#8b5cf6]/40">待回单</span>;
@@ -705,7 +711,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 <option value="处理中">处理中</option>
                                                 <option value="已完成">已完成</option>
                                                 <option value="待回单">待回单</option>
-                                                <option value="撤单">撤单</option>
+                                                <option value="已撤单">已撤单</option>
                                             </StyledSelect>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -720,6 +726,18 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 <option value="地市级">地市级</option>
                                                 <option value="旗县级">旗县级</option>
                                                 <option value="网格级">网格级</option>
+                                            </StyledSelect>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-blue-200">是否收藏</label>
+                                            <StyledSelect 
+                                                className="w-32 bg-[#0b1730]/50"
+                                                value={orderFilters.isImportant}
+                                                onChange={(e) => setOrderFilters({...orderFilters, isImportant: e.target.value})}
+                                            >
+                                                <option value="">请选择</option>
+                                                <option value="true">是</option>
+                                                <option value="false">否</option>
                                             </StyledSelect>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -738,9 +756,9 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 onChange={(e) => setOrderFilters({...orderFilters, endDate: e.target.value})}
                                             />
                                         </div>
-                                        <div className="flex items-center gap-3 ml-auto">
+                                        <div className="flex items-center gap-3">
                                             <StyledButton variant="toolbar" onClick={() => {}} icon={<SearchIcon />}>查询</StyledButton>
-                                            <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => setOrderFilters({ keyword: '', status: '', level: '', startDate: '', endDate: '' })} icon={<RefreshCwIcon />}>重置</StyledButton>
+                                            <StyledButton variant="toolbar" className="bg-[#1e3a5f] border-gray-600" onClick={() => setOrderFilters({ keyword: '', status: '', level: '', isImportant: '', startDate: '', endDate: '' })} icon={<RefreshCwIcon />}>重置</StyledButton>
                                         </div>
                                     </>
                                 )} 
@@ -875,6 +893,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 <Th>网络侧收单时间</Th>
                                                 <Th>交付时限</Th>
                                                 <Th>完成时间</Th>
+                                                <Th>回单时间</Th>
                                                 <Th className="text-center sticky right-0 bg-[#0c2242] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th>
                                             </tr>
                                         )}
@@ -896,6 +915,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                         {activeTabId === 'config' && (
                                             <tr>
                                                 <Th>交付经理级别</Th>
+                                                <Th>管辖业务</Th>
                                                 <Th>交付经理姓名</Th>
                                                 <Th>交付经理电话</Th>
                                                 <Th>地市</Th>
@@ -919,6 +939,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 return (
                                                 <tr key={row.id} className={`hover:bg-[#1e3a5f]/40 transition-colors border-b border-blue-500/10 whitespace-nowrap ${idx % 2 === 1 ? 'bg-[#0c2242]/30' : ''}`}>
                                                     <td className="p-3 border-b border-blue-500/10">{row.level}</td>
+                                                    <td className="p-3 border-b border-blue-500/10 text-blue-300 text-xs">{row.businesses?.join('、') || '-'}</td>
                                                     <td className="p-3 border-b border-blue-500/10">{row.name}</td>
                                                     <td className="p-3 border-b border-blue-500/10 font-mono text-gray-300">{row.phone}</td>
                                                     <td className="p-3 border-b border-blue-500/10">{showCity ? row.city : '-'}</td>
@@ -932,7 +953,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            )}) : <tr><td colSpan={8} className="p-8 text-center text-gray-500 border-b border-blue-500/10">暂无经理数据</td></tr>
+                                            )}) : <tr><td colSpan={9} className="p-8 text-center text-gray-500 border-b border-blue-500/10">暂无经理数据</td></tr>
                                         ) : (
                                             // Order/Task Table Body
                                             paginatedData.length > 0 ? (
@@ -980,8 +1001,9 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                                 <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.receiptTime}</td>
                                                                 <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.deliveryDeadline}</td>
                                                                 <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.completionTime}</td>
+                                                                <td className="p-3 font-mono border-b border-blue-500/10 text-gray-300">{row.returnOrderTime || '-'}</td>
                                                                 <td className="p-3 text-center border-b border-blue-500/10 sticky right-0 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
-                                                                    {row.status === '已完成' || row.status === '撤单' ? (
+                                                                    {row.status === '已完成' || row.status === '已撤单' ? (
                                                                         <button 
                                                                             className="text-neon-blue hover:text-white hover:underline"
                                                                             onClick={() => handleOpenOrderDetailLocal(row, 'info')}
@@ -1133,6 +1155,36 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                             <option value="网格级">网格级</option>
                                                         </StyledSelect>
                                                     </div>
+
+                                                    {/* Row 3: Jurisdiction Business (Full Width) - Only for non-Provincial */}
+                                                    {newManagerForm.level && newManagerForm.level !== '省级' && (
+                                                        <div className="space-y-1 w-full animate-[fadeIn_0.3s_ease-out]">
+                                                            <label className="text-[12px] text-blue-300">管辖业务 <span className="text-red-500">*</span></label>
+                                                            <div className="flex items-center gap-6 h-[38px] px-2">
+                                                                {['专线', '宽带', '终端'].map(biz => (
+                                                                    <label key={biz} className="flex items-center gap-2 cursor-pointer group">
+                                                                        <div className="relative flex items-center">
+                                                                            <input 
+                                                                                type="checkbox" 
+                                                                                className="peer appearance-none w-4 h-4 border border-blue-500/50 rounded bg-[#0b1730]/50 checked:bg-neon-blue checked:border-neon-blue transition-all"
+                                                                                checked={newManagerForm.businesses.includes(biz)}
+                                                                                onChange={(e) => {
+                                                                                    const newBusinesses = e.target.checked 
+                                                                                        ? [...newManagerForm.businesses, biz]
+                                                                                        : newManagerForm.businesses.filter(b => b !== biz);
+                                                                                    setNewManagerForm({...newManagerForm, businesses: newBusinesses});
+                                                                                }}
+                                                                            />
+                                                                            <svg className="absolute w-3 h-3 text-[#0b1730] pointer-events-none opacity-0 peer-checked:opacity-100 left-0.5 top-0.5 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                                                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                                                            </svg>
+                                                                        </div>
+                                                                        <span className="text-white text-sm group-hover:text-neon-blue transition-colors">{biz}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     
                                                     {/* Conditional Rendering based on Level */}
                                                     {['地市级', '旗县级', '网格级'].includes(newManagerForm.level) && (
