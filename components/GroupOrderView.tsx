@@ -456,7 +456,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             return Array.from({ length: total }).map((_, i) => {
                 const isCompleted = i < completed;
                 let status = isCompleted ? '已完成' : (order.status === '待受理' ? '待受理' : '处理中');
-                if (!isCompleted && order.status === '撤单') status = '撤单';
+                if (!isCompleted && order.status === '撤单') status = '已撤单';
 
                 return {
                     id: `${order.id}_t${i}`,
@@ -470,7 +470,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                     remaining: order.remainingTime,
                     deadline: order.deliveryDeadline,
                     finishTime: isCompleted ? '2026-02-12 10:00:00' : '',
-                    op: isCompleted ? '查看' : '处理',
+                    op: (isCompleted || status === '已撤单') ? '查看' : '处理',
                     manager: order.manager
                 };
             });
@@ -516,7 +516,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
     // Calculate Active Counts (excluding Completed and Cancelled)
     const activeOrderCount = useMemo(() => orderData.filter(o => o.status !== '已完成' && o.status !== '撤单').length, [orderData]);
-    const activeTaskCount = useMemo(() => allGeneratedTasks.filter(t => t.status !== '已完成' && t.status !== '撤单').length, [allGeneratedTasks]);
+    const activeTaskCount = useMemo(() => allGeneratedTasks.filter(t => t.status !== '已完成' && t.status !== '撤单' && t.status !== '已撤单').length, [allGeneratedTasks]);
 
     // Current active data based on TAB ID
     const currentData = activeTabId === 'order' ? filteredOrderData : activeTabId === 'task' ? filteredTaskData : filteredManagerData;
@@ -535,6 +535,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             case '处理中': return <span className="px-3 py-0.5 rounded text-xs bg-[#2563eb]/20 text-[#60a5fa] border border-[#2563eb]/40">处理中</span>;
             case '待受理': return <span className="px-3 py-0.5 rounded text-xs bg-[#eab308]/20 text-[#fde047] border border-[#eab308]/40">待受理</span>;
             case '撤单': return <span className="px-3 py-0.5 rounded text-xs bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/40">撤单</span>;
+            case '已撤单': return <span className="px-3 py-0.5 rounded text-xs bg-[#ef4444]/20 text-[#fca5a5] border border-[#ef4444]/40">已撤单</span>;
             case '已完成': return <span className="px-3 py-0.5 rounded text-xs bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40">已完成</span>;
             case '待回单': return <span className="px-3 py-0.5 rounded text-xs bg-[#8b5cf6]/20 text-[#a78bfa] border border-[#8b5cf6]/40">待回单</span>;
             default: return <span className="px-3 py-0.5 rounded text-xs text-gray-400">{status}</span>;
@@ -766,6 +767,7 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
                                                 <option value="待受理">待受理</option>
                                                 <option value="处理中">处理中</option>
                                                 <option value="已完成">已完成</option>
+                                                <option value="已撤单">已撤单</option>
                                             </StyledSelect>
                                         </div>
                                         <div className="flex items-center gap-2">

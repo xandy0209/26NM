@@ -25,6 +25,7 @@ const getStatusBadgeClass = (status: string) => {
         case '处理中': return 'bg-[#2563eb]/20 text-[#60a5fa] border-[#2563eb]/40';
         case '待回单': return 'bg-[#8b5cf6]/20 text-[#a78bfa] border-[#8b5cf6]/40';
         case '撤单': return 'bg-[#ef4444]/20 text-[#fca5a5] border-[#ef4444]/40';
+        case '已撤单': return 'bg-[#ef4444]/20 text-[#fca5a5] border-[#ef4444]/40';
         default: return 'bg-[#2563eb]/20 text-[#60a5fa] border-[#2563eb]/40';
     }
 };
@@ -110,8 +111,8 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
 
     // Process Tab State
     const [lastAppointment, setLastAppointment] = useState<{start: string, end: string} | null>(null);
-    const [newStart, setNewStart] = useState('');
-    const [newEnd, setNewEnd] = useState('');
+    const [appointmentDate, setAppointmentDate] = useState('');
+    const [appointmentTimeSlot, setAppointmentTimeSlot] = useState('');
 
     // Feedback Tab State
     const [feedbackList, setFeedbackList] = useState([
@@ -141,7 +142,14 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
         }
         setTaskLogs(initialLogs);
         
-        // Reset Feedback for demo if task changes significantly (optional, keeping static mock for now)
+        // Reset Feedback for demo if task changes significantly
+        if (task.status === '待受理') {
+            setFeedbackList([]);
+        } else {
+            setFeedbackList([
+                { id: 1, time: '2026-02-10 14:30:00', operator: task.manager || '张宏伟', content: '已联系客户，客户表示下午3点方便上门核查线路情况。' }
+            ]);
+        }
     }, [task.id, triggerTimestamp]);
 
     const handleTabClick = (tab: 'info' | 'flow' | 'process' | 'feedback') => {
@@ -163,16 +171,19 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
     };
 
     const handleReschedule = () => {
-        if(!newStart || !newEnd) {
-            alert("请选择完整的预约时间段");
+        if(!appointmentDate || !appointmentTimeSlot) {
+            alert("请选择完整的预约日期和时间段");
             return;
         }
-        const fmt = (dStr: string) => dStr.replace('T', ' ') + ':00';
+        
+        const [startTime, endTime] = appointmentTimeSlot.split('-');
+        const startStr = `${appointmentDate} ${startTime}:00`;
+        const endStr = `${appointmentDate} ${endTime}:00`;
         
         // This setter triggers re-render, switching text from '确认预约' to '确认改约'
         setLastAppointment({
-            start: fmt(newStart),
-            end: fmt(newEnd)
+            start: startStr,
+            end: endStr
         });
         
         const now = new Date();
@@ -182,11 +193,11 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
             time: timeStr,
             operator: task.manager || '当前用户',
             type: '集中预约',
-            desc: `更新预约时间为：${fmt(newStart)} 至 ${fmt(newEnd)}`
+            desc: `更新预约时间为：${startStr} 至 ${endStr}`
         }, ...prev]);
 
-        setNewStart('');
-        setNewEnd('');
+        setAppointmentDate('');
+        setAppointmentTimeSlot('');
         
         // Visual feedback - logic simplified to just log, as UI update (Card appearing) is the feedback
         console.log("预约/改约成功");
@@ -244,7 +255,7 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
             return 'completed';
         }
         
-        if (taskStatus === '撤单') {
+        if (taskStatus === '撤单' || taskStatus === '已撤单') {
              if (index <= 1) return 'completed';
              return 'pending';
         }
@@ -563,18 +574,29 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <StyledInput 
-                                                    type="datetime-local" 
+                                                    type="date" 
                                                     className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
-                                                    value={newStart}
-                                                    onChange={(e) => setNewStart(e.target.value)}
+                                                    value={appointmentDate}
+                                                    onChange={(e) => setAppointmentDate(e.target.value)}
                                                 />
-                                                <span className="text-white font-medium">至</span>
-                                                <StyledInput 
-                                                    type="datetime-local" 
+                                                <StyledSelect
                                                     className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
-                                                    value={newEnd}
-                                                    onChange={(e) => setNewEnd(e.target.value)}
-                                                />
+                                                    value={appointmentTimeSlot}
+                                                    onChange={(e) => setAppointmentTimeSlot(e.target.value)}
+                                                >
+                                                    <option value="">请选择时间段</option>
+                                                    <option value="09:00-10:00">09:00-10:00</option>
+                                                    <option value="10:00-11:00">10:00-11:00</option>
+                                                    <option value="11:00-12:00">11:00-12:00</option>
+                                                    <option value="12:00-13:00">12:00-13:00</option>
+                                                    <option value="13:00-14:00">13:00-14:00</option>
+                                                    <option value="14:00-15:00">14:00-15:00</option>
+                                                    <option value="15:00-16:00">15:00-16:00</option>
+                                                    <option value="16:00-17:00">16:00-17:00</option>
+                                                    <option value="17:00-18:00">17:00-18:00</option>
+                                                    <option value="18:00-19:00">18:00-19:00</option>
+                                                    <option value="19:00-20:00">19:00-20:00</option>
+                                                </StyledSelect>
                                                 <StyledButton 
                                                     id="reschedule-btn"
                                                     variant="primary" 
@@ -617,7 +639,7 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                         )}
 
                         {/* Scenario 4: Canceled */}
-                        {taskStatus === '撤单' && (
+                        {(taskStatus === '撤单' || taskStatus === '已撤单') && (
                             <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
                                 <div className="flex flex-col items-center justify-center gap-6 p-10 bg-transparent rounded-lg border border-red-500/20 shadow-[0_0_40px_rgba(220,38,38,0.1)]">
                                     <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/50 flex items-center justify-center text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
@@ -628,7 +650,9 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                                     </div>
                                     <div className="text-center space-y-2">
                                         <div className="text-2xl font-bold text-white tracking-wide">任务已撤销</div>
-                                        <div className="text-red-300/80 text-sm max-w-md text-center bg-red-900/20 px-6 py-3 rounded border border-red-500/20">任务已撤销，流程终止。</div>
+                                        <div className="text-red-300/80 text-sm max-w-md text-center bg-red-900/20 px-6 py-3 rounded border border-red-500/20">
+                                            该任务已被撤销，流程已终止。无法进行受理、预约或回单操作。
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -639,7 +663,7 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                 {activeTab === 'feedback' && (
                     <div className="flex flex-col h-full space-y-4 animate-[fadeIn_0.3s_ease-out] overflow-hidden">
                         {/* Input Area */}
-                        {taskStatus !== '待受理' && taskStatus !== '已完成' && (
+                        {taskStatus !== '待受理' && taskStatus !== '已完成' && taskStatus !== '撤单' && taskStatus !== '已撤单' && (
                             <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-5 shadow-sm shrink-0">
                                 <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4">新增反馈</h3>
                                 <div className="flex flex-col gap-4">

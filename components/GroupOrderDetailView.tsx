@@ -522,10 +522,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
 
     // Determine tabs based on status
     const visibleTabs = useMemo(() => {
-        const tabs = ['团单信息', '流程信息', '团单处理'];
-        if (orderStatus !== '待受理') {
-            tabs.push('阶段反馈');
-        }
+        const tabs = ['团单信息', '流程信息', '团单处理', '阶段反馈'];
         return tabs;
     }, [orderStatus]);
 
@@ -955,13 +952,13 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                 )}
 
                 {/* --- TAB: FEEDBACK --- */}
-                {activeTab === 'feedback' && orderStatus !== '待受理' && (
+                {activeTab === 'feedback' && (
                     <div className="flex flex-col h-full bg-transparent border border-blue-500/20 rounded-sm p-5 shadow-sm animate-[fadeIn_0.3s_ease-out] overflow-hidden">
                         <h3 className="text-sm font-bold text-neon-blue border-l-2 border-neon-blue pl-2 flex items-center h-4 mb-4 shrink-0">
                             任务阶段反馈汇总
                         </h3>
                         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-                            {allTaskFeedback.length > 0 ? (
+                            {orderStatus !== '待受理' && allTaskFeedback.length > 0 ? (
                                 allTaskFeedback.map(item => (
                                     <div key={item.id} className="bg-[#0b1730]/40 border border-blue-500/10 p-4 rounded-sm hover:bg-[#0b1730]/60 transition-colors">
                                         <div className="flex justify-between items-start mb-2">
@@ -984,7 +981,7 @@ export const GroupOrderDetailView: React.FC<GroupOrderDetailViewProps> = ({ orde
                                 ))
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-blue-300/50 text-sm">
-                                    暂无任务反馈记录
+                                    暂无反馈记录
                                 </div>
                             )}
                         </div>
