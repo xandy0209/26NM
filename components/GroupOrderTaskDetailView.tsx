@@ -110,9 +110,10 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
     ]);
 
     // Process Tab State
-    const [lastAppointment, setLastAppointment] = useState<{start: string, end: string} | null>(null);
+    const [lastAppointment, setLastAppointment] = useState<{start: string, end: string, expectedDelivery?: string} | null>(null);
     const [appointmentDate, setAppointmentDate] = useState('');
     const [appointmentTimeSlot, setAppointmentTimeSlot] = useState('');
+    const [expectedDeliveryTime, setExpectedDeliveryTime] = useState('');
 
     // Feedback Tab State
     const [feedbackList, setFeedbackList] = useState([
@@ -179,11 +180,28 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
         const [startTime, endTime] = appointmentTimeSlot.split('-');
         const startStr = `${appointmentDate} ${startTime}:00`;
         const endStr = `${appointmentDate} ${endTime}:00`;
+
+        // Validate Expected Delivery Time
+        if (expectedDeliveryTime) {
+            const appointmentStart = new Date(startStr);
+            const deliveryTime = new Date(expectedDeliveryTime);
+            const deadline = new Date(task.deadline);
+
+            if (deliveryTime < appointmentStart) {
+                alert("用户期望交付时限不能早于预约时间");
+                return;
+            }
+            if (deliveryTime > deadline) {
+                alert("用户期望交付时限不能晚于任务交付时限");
+                return;
+            }
+        }
         
         // This setter triggers re-render, switching text from '确认预约' to '确认改约'
         setLastAppointment({
             start: startStr,
-            end: endStr
+            end: endStr,
+            expectedDelivery: expectedDeliveryTime ? expectedDeliveryTime.replace('T', ' ') : undefined
         });
         
         const now = new Date();
@@ -193,11 +211,12 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
             time: timeStr,
             operator: task.manager || '当前用户',
             type: '集中预约',
-            desc: `更新预约时间为：${startStr} 至 ${endStr}`
+            desc: `更新预约时间为：${startStr} 至 ${endStr}${expectedDeliveryTime ? `，用户期望交付时限：${expectedDeliveryTime.replace('T', ' ')}` : ''}`
         }, ...prev]);
 
         setAppointmentDate('');
         setAppointmentTimeSlot('');
+        setExpectedDeliveryTime('');
         
         // Visual feedback - logic simplified to just log, as UI update (Card appearing) is the feedback
         console.log("预约/改约成功");
@@ -328,6 +347,7 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
                                     <div className="flex items-center gap-2"><span className="text-blue-300 w-28 text-right">在途量/任务派单量：</span><span className="text-white">{task.dispatchRatio}</span></div>
                                     <div className="flex items-center gap-2"><span className="text-blue-300 w-28 text-right">任务剩余时限：</span><span className="text-white">{task.remaining}</span></div>
                                     <div className="flex items-center gap-2"><span className="text-blue-300 w-28 text-right">任务交付时限：</span><span className="text-white font-mono">{task.deadline}</span></div>
+                                    <div className="flex items-center gap-2"><span className="text-blue-300 w-28 text-right">用户期望交付时限：</span><span className="text-white font-mono">{lastAppointment?.expectedDelivery || '-'}</span></div>
                                     <div className="flex items-center gap-2"><span className="text-blue-300 w-28 text-right">任务完成时间：</span><span className="text-white font-mono">{task.finishTime || '-'}</span></div>
                                 </div>
                             </div>
@@ -540,71 +560,97 @@ export const GroupOrderTaskDetailView: React.FC<GroupOrderTaskDetailViewProps> =
 
                         {/* Scenario 2: Processing (Centralized Appointment & Completion) */}
                         {taskStatus === '处理中' && (
-                            <div className="flex flex-col items-center justify-center h-full p-8 animate-[fadeIn_0.5s_ease-out]">
-                                <div className="flex flex-col gap-6 w-full max-w-[720px]">
+                            <div className="flex flex-col items-center h-full p-8 animate-[fadeIn_0.5s_ease-out] overflow-y-auto custom-scrollbar">
+                                <div className="flex flex-col gap-6 w-full max-w-[720px] my-auto">
                                     {/* Top Card: Last Appointment Status - Only show if appointment exists (submitted) */}
                                     {lastAppointment && (
-                                        <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-6 flex items-center justify-between shadow-sm animate-[fadeIn_0.3s_ease-out]">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center text-neon-blue border border-blue-500/30">
-                                                    <ClockIcon />
-                                                </div>
-                                                <div>
-                                                    <div className="text-blue-300 text-xs mb-1">上次预约/改约时间</div>
-                                                    <div className="text-xl font-bold text-white tracking-wide font-mono">
-                                                        {lastAppointment.start} 至 {lastAppointment.end}
+                                        <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-6 flex flex-col gap-4 shadow-sm animate-[fadeIn_0.3s_ease-out] shrink-0">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center text-neon-blue border border-blue-500/30">
+                                                        <ClockIcon />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-blue-300 text-xs mb-1">上次预约/改约时间</div>
+                                                        <div className="text-xl font-bold text-white tracking-wide font-mono">
+                                                            {lastAppointment.start} 至 {lastAppointment.end}
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                <div>
+                                                    <span className="px-3 py-1 bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40 text-sm rounded">已预约</span>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <span className="px-3 py-1 bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/40 text-sm rounded">已预约</span>
-                                            </div>
+                                            {lastAppointment.expectedDelivery && (
+                                                <div className="border-t border-blue-500/20 pt-3 flex items-center gap-2">
+                                                    <span className="text-blue-300 text-xs">用户期望交付时限：</span>
+                                                    <span className="text-white font-mono text-sm font-bold">{lastAppointment.expectedDelivery}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
                                     {/* Bottom Card: Reschedule Form */}
-                                    <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-8 shadow-sm space-y-6">
+                                    <div className="bg-[#13284c]/30 border border-blue-500/20 rounded-sm p-8 shadow-sm space-y-6 shrink-0">
                                         <h3 className="text-base font-bold text-white border-l-2 border-neon-blue pl-2 h-4 flex items-center">
                                             {lastAppointment ? '修改集中预约时间' : '集中预约时间'}
                                         </h3>
                                         
-                                        <div className="space-y-3">
-                                            <div className="text-blue-300 text-sm">
-                                                {lastAppointment ? '请选择新的预约上门时间段：' : '请选择预约上门时间段：'}
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <div className="text-blue-300 text-sm">
+                                                    {lastAppointment ? '请选择新的预约上门时间段：' : '请选择预约上门时间段：'}
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <StyledInput 
+                                                        type="date" 
+                                                        className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
+                                                        value={appointmentDate}
+                                                        onChange={(e) => setAppointmentDate(e.target.value)}
+                                                    />
+                                                    <StyledSelect
+                                                        className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
+                                                        value={appointmentTimeSlot}
+                                                        onChange={(e) => setAppointmentTimeSlot(e.target.value)}
+                                                    >
+                                                        <option value="">请选择时间段</option>
+                                                        <option value="09:00-10:00">09:00-10:00</option>
+                                                        <option value="10:00-11:00">10:00-11:00</option>
+                                                        <option value="11:00-12:00">11:00-12:00</option>
+                                                        <option value="12:00-13:00">12:00-13:00</option>
+                                                        <option value="13:00-14:00">13:00-14:00</option>
+                                                        <option value="14:00-15:00">14:00-15:00</option>
+                                                        <option value="15:00-16:00">15:00-16:00</option>
+                                                        <option value="16:00-17:00">16:00-17:00</option>
+                                                        <option value="17:00-18:00">17:00-18:00</option>
+                                                        <option value="18:00-19:00">18:00-19:00</option>
+                                                        <option value="19:00-20:00">19:00-20:00</option>
+                                                    </StyledSelect>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                <StyledInput 
-                                                    type="date" 
-                                                    className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
-                                                    value={appointmentDate}
-                                                    onChange={(e) => setAppointmentDate(e.target.value)}
-                                                />
-                                                <StyledSelect
-                                                    className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
-                                                    value={appointmentTimeSlot}
-                                                    onChange={(e) => setAppointmentTimeSlot(e.target.value)}
-                                                >
-                                                    <option value="">请选择时间段</option>
-                                                    <option value="09:00-10:00">09:00-10:00</option>
-                                                    <option value="10:00-11:00">10:00-11:00</option>
-                                                    <option value="11:00-12:00">11:00-12:00</option>
-                                                    <option value="12:00-13:00">12:00-13:00</option>
-                                                    <option value="13:00-14:00">13:00-14:00</option>
-                                                    <option value="14:00-15:00">14:00-15:00</option>
-                                                    <option value="15:00-16:00">15:00-16:00</option>
-                                                    <option value="16:00-17:00">16:00-17:00</option>
-                                                    <option value="17:00-18:00">17:00-18:00</option>
-                                                    <option value="18:00-19:00">18:00-19:00</option>
-                                                    <option value="19:00-20:00">19:00-20:00</option>
-                                                </StyledSelect>
-                                                <StyledButton 
-                                                    id="reschedule-btn"
-                                                    variant="primary" 
-                                                    className="h-[38px] px-8 text-sm ml-4 font-bold tracking-wide"
-                                                    onClick={handleReschedule}
-                                                >
-                                                    {lastAppointment ? '确认改约' : '确认预约'}
-                                                </StyledButton>
+                                            
+                                            <div className="space-y-2">
+                                                <div className="text-blue-300 text-sm">
+                                                    用户期望交付时限（选填）：
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <StyledInput 
+                                                        type="datetime-local"
+                                                        className="flex-1 h-[38px] bg-[#0b1730]/50 border-blue-500/30 text-white min-w-0"
+                                                        value={expectedDeliveryTime}
+                                                        onChange={(e) => setExpectedDeliveryTime(e.target.value)}
+                                                        placeholder="请选择用户期望交付时限"
+                                                    />
+                                                    <div className="flex-1"></div>
+                                                    <StyledButton 
+                                                        id="reschedule-btn"
+                                                        variant="primary" 
+                                                        className="h-[38px] px-8 text-sm ml-4 font-bold tracking-wide"
+                                                        onClick={handleReschedule}
+                                                    >
+                                                        {lastAppointment ? '确认改约' : '确认预约'}
+                                                    </StyledButton>
+                                                </div>
                                             </div>
                                         </div>
 
