@@ -21,6 +21,7 @@ import {
 import { GroupOrderRecord } from '../types';
 import { GroupOrderDetailView } from './GroupOrderDetailView';
 import { GroupOrderTaskDetailView } from './GroupOrderTaskDetailView';
+import * as XLSX from 'xlsx';
 
 // Star Icon for importance column
 const StarIcon = ({ filled, onClick }: { filled: boolean; onClick?: (e: React.MouseEvent) => void }) => (
@@ -174,6 +175,72 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         company: '',
         businesses: [] as string[]
     });
+
+    // Import/Export Handlers
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleImportTemplate = () => {
+        const headers = [
+            '序号', '盟市', '旗县', '代维公司', 
+            '网格交付经理', '网格交付经理电话', '网格交付经理管辖业务\n(枚举值：专线、宽带、终端)', 
+            '旗县交付经理', '旗县交付经理电话', '旗县交付经理管辖业务\n(枚举值：专线、宽带、终端)', 
+            '分公司交付经理', '分公司交付经理电话', '分公司交付经理管辖业务\n(枚举值：专线、宽带、终端)', 
+            '区公司交付经理', '区公司交付经理电话'
+        ];
+        // Create an empty row with just the index 1
+        const data = [
+            headers,
+            [1, '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // Set column widths to accommodate longer headers
+        ws['!cols'] = [
+            { wch: 6 },  // 序号
+            { wch: 10 }, // 盟市
+            { wch: 10 }, // 旗县
+            { wch: 15 }, // 代维公司
+            { wch: 15 }, // 网格交付经理
+            { wch: 18 }, // 网格交付经理电话
+            { wch: 35 }, // 网格交付经理管辖业务
+            { wch: 15 }, // 旗县交付经理
+            { wch: 18 }, // 旗县交付经理电话
+            { wch: 35 }, // 旗县交付经理管辖业务
+            { wch: 15 }, // 分公司交付经理
+            { wch: 18 }, // 分公司交付经理电话
+            { wch: 35 }, // 分公司交付经理管辖业务
+            { wch: 15 }, // 区公司交付经理
+            { wch: 18 }  // 区公司交付经理电话
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "交付经理导入模版.xlsx");
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            console.log("Imported Data:", jsonData);
+            // Here you would typically process the data and update the state
+            // For now, we just log it as the requirements didn't specify the exact mapping logic
+        } catch (error) {
+            console.error("Error reading file:", error);
+        }
+
+        // Reset input
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -583,6 +650,58 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
         );
     };
 
+    // Tab Scrolling Logic
+    const tabsContainerRef = React.useRef<HTMLDivElement>(null);
+    const [showLeftArrow, setShowLeftArrow] = useState(false);
+    const [showRightArrow, setShowRightArrow] = useState(false);
+
+    const checkScroll = React.useCallback(() => {
+        if (tabsContainerRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = tabsContainerRef.current;
+            // Use a small threshold (1px) for float precision issues
+            const hasOverflow = scrollWidth > clientWidth;
+            setShowLeftArrow(scrollLeft > 1);
+            setShowRightArrow(hasOverflow && Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1);
+        }
+    }, []);
+
+    // Use useLayoutEffect to ensure check runs immediately after DOM updates but before paint
+    React.useLayoutEffect(() => {
+        checkScroll();
+        
+        // Double check after a short delay to ensure layout is fully stable (e.g. fonts loaded)
+        const timer = setTimeout(checkScroll, 100);
+
+        // Observe container resize (handles window resize and sidebar toggle)
+        const observer = new ResizeObserver(() => {
+            checkScroll();
+        });
+
+        if (tabsContainerRef.current) {
+            observer.observe(tabsContainerRef.current);
+        }
+
+        return () => {
+            observer.disconnect();
+            clearTimeout(timer);
+        };
+    }, [tabs, isSidebarCollapsed, checkScroll]);
+
+    const scrollTabs = (direction: 'left' | 'right') => {
+        if (tabsContainerRef.current) {
+            const scrollAmount = 200;
+            const newScrollLeft = direction === 'left' 
+                ? tabsContainerRef.current.scrollLeft - scrollAmount 
+                : tabsContainerRef.current.scrollLeft + scrollAmount;
+            
+            tabsContainerRef.current.scrollTo({
+                left: newScrollLeft,
+                behavior: 'smooth'
+            });
+            // checkScroll will be called by onScroll event
+        }
+    };
+
     // Helper to get tab specific props
     const getActiveTabProps = () => {
         const tab = tabs.find(t => t.id === activeTabId);
@@ -619,38 +738,70 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-transparent">
                 
                 {/* Tab Bar - Consistent with Complaint Support */}
-                <div className="flex items-end gap-[6px] pl-0 pr-4 h-[35px] border-none bg-[#0c1a35]/20 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                    {tabs.map((tab) => {
-                        const isActive = activeTabId === tab.id;
-                        return (
-                            <div 
-                                key={tab.id} 
-                                onClick={() => setActiveTabId(tab.id)}
-                                onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
-                                }}
-                                className={`
-                                    relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[120px] px-3 overflow-hidden group
-                                    ${isActive 
-                                        ? 'z-10' 
-                                        : 'border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-transparent'}
-                                `}
-                            >
-                                {/* Active Tab Indicators */}
-                                {isActive && (
-                                    <>
-                                        <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
-                                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
-                                        <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                                        <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                                    </>
-                                )}
-                                <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
-                                <button onClick={(e) => handleCloseTab(e, tab.id)} className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}> <XIcon /> </button> 
-                            </div> 
-                        );
-                    })}
+                <div className="flex items-center h-[35px] bg-[#0c1a35]/20 shrink-0 border-none relative pr-4 w-full">
+                    {/* Left Arrow */}
+                    {showLeftArrow && (
+                        <button 
+                            onClick={() => scrollTabs('left')}
+                            className="absolute left-0 z-20 h-full px-1 bg-[#0c1a35]/80 text-neon-blue hover:text-white hover:bg-blue-500/20 transition-colors border-r border-blue-500/30"
+                        >
+                            <ChevronLeftIcon />
+                        </button>
+                    )}
+
+                    <div 
+                        ref={tabsContainerRef}
+                        onScroll={checkScroll}
+                        className="flex-1 min-w-0 flex items-end gap-[6px] pl-0 h-full overflow-x-auto [&::-webkit-scrollbar]:hidden scroll-smooth" 
+                        style={{ scrollbarWidth: 'none' }}
+                    >
+                        {tabs.map((tab) => {
+                            const isActive = activeTabId === tab.id;
+                            return (
+                                <div 
+                                    key={tab.id} 
+                                    onClick={() => setActiveTabId(tab.id)}
+                                    onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+                                    }}
+                                    className={`
+                                        relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[120px] px-3 overflow-hidden group shrink-0
+                                        ${isActive 
+                                            ? 'z-10' 
+                                            : 'border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-transparent'}
+                                    `}
+                                >
+                                    {/* Active Tab Indicators */}
+                                    {isActive && (
+                                        <>
+                                            <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
+                                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
+                                            <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                            <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                        </>
+                                    )}
+                                    <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
+                                    <button 
+                                        onClick={(e) => handleCloseTab(e, tab.id)} 
+                                        className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors flex items-center justify-center ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}
+                                    > 
+                                        <XIcon /> 
+                                    </button> 
+                                </div> 
+                            );
+                        })}
+                    </div>
+
+                    {/* Right Arrow */}
+                    {showRightArrow && (
+                        <button 
+                            onClick={() => scrollTabs('right')}
+                            className="absolute right-0 z-20 h-full px-1 bg-[#0c1a35]/80 text-neon-blue hover:text-white hover:bg-blue-500/20 transition-colors border-l border-blue-500/30"
+                        >
+                            <ChevronRightIcon />
+                        </button>
+                    )}
                 </div>
 
                 {/* Content Area - Now has the border */}
@@ -1071,9 +1222,28 @@ export const GroupOrderView: React.FC<GroupOrderViewProps> = ({
 
                             {/* Footer */}
                             <div className="h-[40px] bg-transparent border-t border-blue-500/20 flex items-center justify-between px-4 shrink-0 text-xs">
-                                <button className="flex items-center gap-1 text-neon-blue border border-neon-blue/30 px-3 py-1 rounded hover:bg-neon-blue/10 transition-colors">
-                                    <DownloadIcon /> <span className="ml-1">导出</span>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button className="flex items-center gap-1 text-neon-blue border border-neon-blue/30 px-3 py-1 rounded hover:bg-neon-blue/10 transition-colors">
+                                        <DownloadIcon /> <span className="ml-1">导出</span>
+                                    </button>
+                                    {activeTabId === 'config' && (
+                                        <>
+                                            <button onClick={handleImportClick} className="flex items-center gap-1 text-neon-blue border border-neon-blue/30 px-3 py-1 rounded hover:bg-neon-blue/10 transition-colors">
+                                                <span className="ml-1">导入</span>
+                                            </button>
+                                            <button onClick={handleImportTemplate} className="flex items-center gap-1 text-neon-blue border border-neon-blue/30 px-3 py-1 rounded hover:bg-neon-blue/10 transition-colors">
+                                                <span className="ml-1">导入模版</span>
+                                            </button>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                onChange={handleFileChange} 
+                                                className="hidden" 
+                                                accept=".xlsx, .xls" 
+                                            />
+                                        </>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-4 text-blue-300">
                                     <span>共 {totalItems} 条</span>
                                     <div className="flex items-center gap-1">

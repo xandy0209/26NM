@@ -210,8 +210,8 @@ export const App: React.FC = () => {
   const checkScroll = () => {
     if (menuRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = menuRef.current;
-        setShowLeftArrow(scrollLeft > 1);
-        setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+        setShowLeftArrow(scrollLeft > 0);
+        setShowRightArrow(Math.ceil(scrollLeft + clientWidth) < scrollWidth);
     }
   };
 
@@ -219,12 +219,17 @@ export const App: React.FC = () => {
     const el = menuRef.current;
     if (el) {
         checkScroll();
-        setTimeout(checkScroll, 100);
+        const observer = new ResizeObserver(() => {
+            checkScroll();
+        });
+        observer.observe(el);
+        
         el.addEventListener('scroll', checkScroll);
         window.addEventListener('resize', checkScroll);
         return () => {
             el.removeEventListener('scroll', checkScroll);
             window.removeEventListener('resize', checkScroll);
+            observer.disconnect();
         };
     }
   }, []);
@@ -1065,7 +1070,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
            <div className="flex items-center gap-3 shrink-0"><img src="https://tvbox-67o.pages.dev/logo.png" alt="logo" className="max-h-[50px] w-auto -ml-[20px]" /></div>
            <div className="flex-1 flex items-center justify-center h-full overflow-hidden mx-4 min-w-0 relative">
                 {showLeftArrow && ( <button onClick={() => scrollMenu('left')} className="h-full px-2 text-blue-400/50 hover:text-white transition-colors flex items-center justify-center cursor-pointer shrink-0 z-20"><ChevronLeftIcon /></button> )}
-                <div ref={menuRef} className="flex items-center gap-1 h-full overflow-x-auto no-scrollbar scroll-smooth px-2 w-full" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div ref={menuRef} className="flex-1 flex items-center gap-1 h-full overflow-x-auto no-scrollbar scroll-smooth px-2 min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {MENU_ITEMS.map(item => { 
                         const isActive = activeMenu === item; 
                         const hasDropdown = item === '综合(新)'; 
