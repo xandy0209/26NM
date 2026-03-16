@@ -4,12 +4,13 @@ import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecor
 import { MOCK_DATA, MOCK_SPN_DATA, MOCK_INTERNET_DATA, MOCK_ALARM_DATA, MOCK_IPL_DATA, MOCK_MPLS_DATA, MOCK_IGPL_DATA, MOCK_ROUTE_CITY_DATA, MOCK_ROUTE_DATA, MOCK_SUBSCRIPTION_DATA, MOCK_COMPLAINT_DATA, INNER_MONGOLIA_CITIES } from './constants';
 import { StyledInput, StyledButton, StyledSelect } from './components/UI';
 import { Pagination } from './components/Pagination';
-import { SearchIcon, DownloadIcon, XIcon, RefreshCwIcon, PlusCircleIcon, SendIcon, ClockIcon, CheckCircleIcon, SidebarCloseIcon, SidebarOpenIcon, FolderIcon, SettingsIcon, BarChartIcon, BellIcon, SparklesIcon, BotIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from './components/Icons';
+import { SearchIcon, DownloadIcon, XIcon, RefreshCwIcon, PlusCircleIcon, SendIcon, ClockIcon, CheckCircleIcon, SidebarCloseIcon, SidebarOpenIcon, FolderIcon, SettingsIcon, BarChartIcon, BellIcon, SparklesIcon, BotIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, UserIcon } from './components/Icons';
 import { ExportModal } from './components/ExportModal';
 import { ComplaintModal } from './components/ComplaintModal';
 import { ComplaintDetailView } from './components/ComplaintDetailView';
 import { ComplaintCreateView } from './components/ComplaintCreateView';
 import { ConfigCapabilitiesView } from './components/ConfigCapabilitiesView';
+import { CustomerResponsePersonnelView } from './components/CustomerResponsePersonnelView';
 import { ComplaintStatsView } from './components/ComplaintStatsView';
 import { AIChatPanel } from './components/AIChatPanel';
 import { WorkbenchView } from './components/WorkbenchView';
@@ -64,7 +65,7 @@ const DEFAULT_FAULT_TYPES = ['光缆故障', '设备故障', '配置错误', '�
 interface ComplaintTabItem {
     id: string;
     label: string;
-    type: 'pending' | 'todo' | 'done' | 'all' | 'detail' | 'create' | 'config' | 'stats';
+    type: 'pending' | 'todo' | 'done' | 'all' | 'detail' | 'create' | 'config' | 'stats' | 'personnel';
     record?: ComplaintRecord;
     targetTab?: 'basic' | 'flow' | 'process';
     triggerTimestamp?: number;
@@ -114,7 +115,8 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
         id: 'config',
         title: '配置管理',
         items: [
-            { id: 'capabilities', label: '时限配置', icon: <SettingsIcon /> }
+            { id: 'capabilities', label: '时限配置', icon: <SettingsIcon /> },
+            { id: 'personnel', label: '客响人员管理', icon: <UserIcon /> }
         ]
     }
 ];
@@ -142,7 +144,26 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('complaint');
   const [visibleTabs, setVisibleTabs] = useState<string[]>(['complaint']);
   const [activeMenu, setActiveMenu] = useState('综合(新)'); 
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
+  const [apiKey, setApiKey] = useState<string>('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('GEMINI_API_KEY');
+    if (savedKey) {
+        setApiKey(savedKey);
+    }
+  }, []);
+
+  const handleSaveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem('GEMINI_API_KEY', key);
+    // Clear existing chat sessions to force re-initialization with new key
+    chatSessionRefs.current = {};
+    setIsSettingsOpen(false);
+  };
+
   // Data States
   const [otnData, setOtnData] = useState<OtnRecord[]>([]);
   const [filteredOtnData, setFilteredOtnData] = useState<OtnRecord[]>([]);
@@ -253,9 +274,6 @@ export const App: React.FC = () => {
   const getChatInstance = (sessionId: string) => {
       if (!chatSessionRefs.current[sessionId]) {
            try {
-               let apiKey = '';
-               try { apiKey = process.env.API_KEY || ''; } catch (e) { console.warn("Could not access process.env", e); }
-
                if (!apiKey) {
                    console.warn("API Key missing, utilizing Mock Chat Mode.");
                    const mockChat = {
@@ -530,6 +548,10 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
           const tabId = 'config-capabilities';
           if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '时限配置', type: 'config' }]);
           setActiveComplaintTabId(tabId);
+      } else if (key === 'personnel') {
+          const tabId = 'config-personnel';
+          if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '客响人员管理', type: 'personnel' }]);
+          setActiveComplaintTabId(tabId);
       } else if (key === 'stats') {
           const tabId = 'stats-analysis';
           if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '统计分析', type: 'stats' }]);
@@ -559,6 +581,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
               setActiveComplaintTabId(nextTab.id);
               if (nextTab.type === 'stats') setActiveSidebarFolder('stats');
               else if (nextTab.type === 'config') setActiveSidebarFolder('capabilities');
+              else if (nextTab.type === 'personnel') setActiveSidebarFolder('personnel');
               else if (nextTab.type === 'create') setActiveSidebarFolder('new');
               else if (nextTab.type !== 'detail') setActiveSidebarFolder(nextTab.id);
               else setActiveSidebarFolder('');
@@ -579,6 +602,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
           if (existing) {
               return prev.map(t => t.id === tabId ? { 
                   ...t, 
+                  record,
                   targetTab, 
                   triggerTimestamp: Date.now() 
               } : t);
@@ -604,7 +628,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
       
       setComplaintTabs(prev => {
           const existing = prev.find(t => t.id === tabId);
-          if (existing) return prev.map(t => t.id === tabId ? { ...t, targetTab, triggerTimestamp: Date.now() } : t);
+          if (existing) return prev.map(t => t.id === tabId ? { ...t, record, targetTab, triggerTimestamp: Date.now() } : t);
           return [...prev, { id: tabId, label: `详情: ${record.ticketNo}`, type: 'detail', record: record, targetTab, triggerTimestamp: Date.now() }];
       });
       setActiveComplaintTabId(tabId);
@@ -660,7 +684,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                  if (!matchesKeyword) match = false;
              }
              
-             if (activeInternalTab && activeInternalTab.type !== 'detail' && activeInternalTab.type !== 'create' && activeInternalTab.type !== 'config' && activeInternalTab.type !== 'stats') {
+             if (activeInternalTab && activeInternalTab.type !== 'detail' && activeInternalTab.type !== 'create' && activeInternalTab.type !== 'config' && activeInternalTab.type !== 'stats' && activeInternalTab.type !== 'personnel') {
                  
                  if (activeInternalTab.type === 'pending') {
                      if (item.stage !== '待受理' && item.stage !== 'T0') match = false;
@@ -773,6 +797,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     if (activeTabObj.type === 'create') return <ComplaintCreateView onCancel={() => handleCloseTab(null, activeTabObj.id)} onSubmit={() => { handleCloseComplaintTab(null, activeTabObj.id); handleSearch(); }} initialData={activeTabObj.initialData} />;
     if (activeTabObj.type === 'detail' && activeTabObj.record) return <ComplaintDetailView record={activeTabObj.record} targetTab={activeTabObj.targetTab} triggerTimestamp={activeTabObj.triggerTimestamp} onTabChange={(tab) => handleDetailTabChange(activeTabObj.id, tab)} />;
     if (activeTabObj.type === 'config') return <ConfigCapabilitiesView />;
+    if (activeTabObj.type === 'personnel') return <CustomerResponsePersonnelView />;
     if (activeTabObj.type === 'stats') return <ComplaintStatsView />;
 
     const isPending = activeTabObj.type === 'pending';
@@ -783,7 +808,9 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     // ... (rest of renderComplaintContent logic stays the same)
     
     const pendingCols = [
-        { label: '故障时间', key: 'faultTime' },
+        { label: '告警时间', key: 'alarmTime' },
+        { label: '发现时间', key: 'discoveryTime' },
+        { label: '故障快照', key: 'faultSnapshot' },
         { label: '故障类型', key: 'faultType' },
         { label: '故障描述', key: 'complaintContent' },
         { label: '业务类型', key: 'productType' }, 
@@ -848,7 +875,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     const currentPlaceholder = isPending ? "客户名称/客户编号/业务标识" : isTodo ? "工单编号/客户名称/客户编号/业务标识/电路代号" : isDone ? "工单编号/客户名称/客户编号/电路代号" : isAll ? "工单编号/客户名称/客户编号/业务标识/电路代号" : "工单号/客户/电路/关键字...";
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]">
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)] relative">
             {/* Filter bar code omitted for brevity as it is largely unchanged, just context */}
             <div className="bg-transparent p-3 border-b border-blue-500/20 flex flex-wrap items-center gap-3 shrink-0">
                <StyledInput 
@@ -962,9 +989,9 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
             <div className="flex-1 overflow-auto bg-transparent scrollbar-thin">
                 <table className="w-full text-left text-sm whitespace-nowrap border-separate border-spacing-0">
                     <thead className="sticky top-0 bg-[#0c2242] text-white z-10 shadow-sm">
-                        <tr> 
+                        <tr>
                             {currentCols.map(col => <Th key={col.key}>{col.label}</Th>)}
-                            <Th className="text-center bg-[#0c2242] sticky right-0 z-20 shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th> 
+                            <Th className="text-center bg-[#0c2242] sticky right-0 z-20 shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">操作</Th>
                         </tr>
                     </thead>
                     <tbody className="text-white">
@@ -975,7 +1002,9 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                 <tr key={record.id} className="hover:bg-blue-600/10 transition-colors border-b border-blue-500/10 last:border-0 group">
                                     {isPending ? (
                                         <>
-                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.faultTime}</td>
+                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.alarmTime}</td>
+                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.discoveryTime}</td>
+                                            <td className="p-3 text-blue-400 border-b border-blue-500/10 hover:underline cursor-pointer" onClick={() => setPreviewImage(record.faultSnapshot || '未知快照')}>{record.faultSnapshot}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.faultType || '-'}</td>
                                             <td className="p-3 max-w-[200px] truncate border-b border-blue-500/10" title={record.complaintContent}>{record.complaintContent}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.productType || '-'}</td>
@@ -1044,7 +1073,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                     </td>
                                 </tr>
                             )})
-                        ) : ( <tr> <td colSpan={currentCols.length + 1} className="p-8 text-center text-blue-300/50 border-b border-blue-500/10">暂无数据</td> </tr> )}
+                        ) : ( <tr><td colSpan={currentCols.length + 1} className="p-8 text-center text-blue-300/50 border-b border-blue-500/10">暂无数据</td></tr> )}
                     </tbody>
                 </table>
             </div>
@@ -1059,6 +1088,25 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                     className="py-0 px-4 w-full"
                 />
             </div>
+
+            {previewImage && (
+                <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-[#020617]/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
+                    <div className="relative w-[600px] h-[400px] p-6 bg-[#0b1730] border border-blue-500/50 rounded shadow-2xl flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setPreviewImage(null)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 rounded-full p-2">
+                            <XIcon className="w-6 h-6" />
+                        </button>
+                        <div className="w-full h-full border-2 border-dashed border-blue-500/30 rounded flex flex-col items-center justify-center bg-blue-900/10">
+                            <div className="w-16 h-16 text-blue-500/50 mb-4 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                </svg>
+                            </div>
+                            <span className="text-blue-400/80 text-lg font-medium">故障快照占位图</span>
+                            <span className="text-blue-500/50 text-sm mt-2 font-mono">{previewImage}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
   };
@@ -1099,6 +1147,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                 {showRightArrow && ( <button onClick={() => scrollMenu('right')} className="h-full px-2 text-blue-400/50 hover:text-white transition-colors flex items-center justify-center cursor-pointer shrink-0 z-20"><ChevronRightIcon /></button> )}
            </div>
            <div className="flex items-center gap-5 text-blue-300 shrink-0 whitespace-nowrap">
+              <button className="hover:opacity-80 transition-opacity" onClick={() => setIsSettingsOpen(true)} title="系统设置"><SettingsIcon className="w-4 h-4" /></button>
               <button className="hover:opacity-80 transition-opacity" onClick={toggleFullScreen} title="全屏显示"><img src="https://tvbox-67o.pages.dev/qp.png" alt="全屏" className="w-[10px] h-[10px]" /></button>
               <div className="h-4 w-[1px] bg-blue-500/30"></div>
               <div className="flex items-center gap-3"><span className="text-sm font-medium text-blue-100 tracking-wide shrink-0">吴军校</span><div className="w-8 h-8 rounded-full overflow-hidden border border-blue-400/50 shadow-[0_0_8px_rgba(0,210,255,0.4)] shrink-0"><img src="https://tvbox-67o.pages.dev/head.jpg" alt="User" className="w-full h-full object-cover" /></div></div>
@@ -1168,7 +1217,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                                     e.preventDefault();
                                                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                                                 }}
-                                                onClick={() => { setActiveComplaintTabId(tab.id); if (tab.type === 'stats') setActiveSidebarFolder('stats'); else if (tab.type === 'config') setActiveSidebarFolder('capabilities'); else if (tab.type === 'create') setActiveSidebarFolder('new'); else if (tab.type !== 'detail') setActiveSidebarFolder(tab.id); else setActiveSidebarFolder(''); }} 
+                                                onClick={() => { setActiveComplaintTabId(tab.id); if (tab.type === 'stats') setActiveSidebarFolder('stats'); else if (tab.type === 'config') setActiveSidebarFolder('capabilities'); else if (tab.type === 'personnel') setActiveSidebarFolder('personnel'); else if (tab.type === 'create') setActiveSidebarFolder('new'); else if (tab.type !== 'detail') setActiveSidebarFolder(tab.id); else setActiveSidebarFolder(''); }} 
                                                 className={`
                                                     relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[90px] px-3 overflow-hidden group
                                                     ${isActive 
@@ -1208,6 +1257,43 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
             {isChatPanelOpen && activeTab !== 'ai-chat' && ( <div className="fixed right-0 top-[60px] bottom-0 w-[520px] z-[100] animate-[slideInRight_0.3s_ease-out]"> <AIChatPanel messages={activeSessionMessages} sessions={sessions} activeSessionId={activeSessionId} onNewSession={handleNewSession} onSelectSession={handleSelectSession} onSendMessage={handleSendMessage} isLoading={isChatLoading} mode="sidebar" onExpand={handleExpandChat} onClose={() => setIsChatPanelOpen(false)} onRenameSession={handleRenameSession} onDeleteSession={handleDeleteSession} /> </div> )}
             {!isChatPanelOpen && activeTab !== 'ai-chat' && ( <button onClick={() => setIsChatPanelOpen(true)} className="fixed right-6 bottom-10 z-50 w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full shadow-[0_0_20px_rgba(0,210,255,0.6)] flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-pulse" title="打开智能助手"> <BotIcon /> </button> )}
             
+            {isSettingsOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#0b1730] border border-blue-500/30 p-6 w-[400px] shadow-[0_0_30px_rgba(0,210,255,0.2)]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <SettingsIcon className="w-5 h-5 text-neon-blue" />
+                                系统设置
+                            </h3>
+                            <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white">
+                                <XIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-blue-300 mb-1">Gemini API Key</label>
+                                <StyledInput 
+                                    type="password"
+                                    placeholder="请输入您的 API Key"
+                                    className="w-full"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                />
+                                <p className="text-[10px] text-blue-400/60 mt-1">
+                                    Key 将保存在浏览器本地存储中，不会上传到服务器。
+                                </p>
+                            </div>
+                            
+                            <div className="pt-4 flex justify-end gap-3">
+                                <StyledButton variant="secondary" onClick={() => setIsSettingsOpen(false)}>取消</StyledButton>
+                                <StyledButton variant="primary" onClick={() => handleSaveApiKey(apiKey)}>保存配置</StyledButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {dropdownState.isOpen && (
                 <div 
                     className="fixed z-[60] bg-[#0A3458]/30 border border-blue-500/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md py-2 w-36 rounded-sm animate-[fadeIn_0.1s_ease-out]"

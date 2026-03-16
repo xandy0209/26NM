@@ -73,8 +73,11 @@ interface CallbackItem {
     productName: string;
     city: string;
     customerName: string;
+    customerCode: string;
     callbackPhone: string;
     status: 'pending' | 'completed';
+    callFailed: boolean;
+    callbackTime?: string;
     // Result fields
     result?: string;
     satisfaction?: string;
@@ -107,6 +110,9 @@ export const WorkbenchView: React.FC = () => {
     const [isCallbackModalOpen, setIsCallbackModalOpen] = useState(false);
     const [currentCallbackId, setCurrentCallbackId] = useState<string | null>(null);
 
+    // Filter state for "Call Failed"
+    const [isCallFailedFilterActive, setIsCallFailedFilterActive] = useState(false);
+
     // Alert State
     const [validationAlert, setValidationAlert] = useState<{show: boolean, message: string}>({ show: false, message: '' });
 
@@ -123,8 +129,10 @@ export const WorkbenchView: React.FC = () => {
             productName: products[i % products.length],
             city: cities[i % cities.length],
             customerName: `模拟客户${taskId}-${i + 1}`,
+            customerCode: `C${8000 + (taskId * 10) + i}`,
             callbackPhone: `138${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-            status: 'pending' as const
+            status: 'pending' as const,
+            callFailed: false
         }));
     };
 
@@ -167,10 +175,22 @@ export const WorkbenchView: React.FC = () => {
         setIsCallbackModalOpen(true);
     };
 
+    const handleToggleCallFailed = (id: string) => {
+        setCallbackItems(prev => prev.map(item => {
+            if (item.id === id) {
+                return { ...item, callFailed: !item.callFailed };
+            }
+            return item;
+        }));
+    };
+
     const handleSaveCallbackResult = (resultData: any) => {
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        
         setCallbackItems(prev => prev.map(item => {
             if (item.id === currentCallbackId) {
-                return { ...item, status: 'completed', ...resultData };
+                return { ...item, status: 'completed', callbackTime: timestamp, ...resultData };
             }
             return item;
         }));
@@ -232,7 +252,17 @@ export const WorkbenchView: React.FC = () => {
         }
     }, [tableData]);
 
-    const displayItems = callbackItems.filter(c => rightPanelSubTab === 'pending' ? c.status === 'pending' : c.status === 'completed');
+    const displayItems = callbackItems.filter(c => {
+        const matchesTab = rightPanelSubTab === 'pending' ? c.status === 'pending' : c.status === 'completed';
+        if (!matchesTab) return false;
+        
+        // Apply "Call Failed" filter only on pending tab if active
+        if (rightPanelSubTab === 'pending' && isCallFailedFilterActive) {
+            return c.callFailed;
+        }
+        
+        return true;
+    });
 
     return (
         <div className="flex h-full w-full bg-[#06264D]/50 p-[10px] text-white font-sans overflow-hidden relative">
@@ -492,45 +522,69 @@ export const WorkbenchView: React.FC = () => {
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-                                <div className="flex items-center gap-4 mb-2 border-b border-blue-500/20 pb-2">
-                                    <button 
-                                        className={`text-xs font-bold transition-colors ${rightPanelSubTab === 'pending' ? 'text-neon-blue border-b-2 border-neon-blue pb-1' : 'text-gray-400 hover:text-white'}`}
-                                        onClick={() => setRightPanelSubTab('pending')}
-                                    >
-                                        待回访清单 ({callbackItems.filter(c => c.status === 'pending').length})
-                                    </button>
-                                    <button 
-                                        className={`text-xs font-bold transition-colors ${rightPanelSubTab === 'completed' ? 'text-neon-blue border-b-2 border-neon-blue pb-1' : 'text-gray-400 hover:text-white'}`}
-                                        onClick={() => setRightPanelSubTab('completed')}
-                                    >
-                                        已回访清单 ({callbackItems.filter(c => c.status === 'completed').length})
-                                    </button>
+                                <div className="flex items-center justify-between mb-2 border-b border-blue-500/20 pb-2">
+                                    <div className="flex items-center gap-4">
+                                        <button 
+                                            className={`text-xs font-bold transition-colors relative ${rightPanelSubTab === 'pending' ? 'text-neon-blue pb-1' : 'text-gray-400 hover:text-white'}`}
+                                            onClick={() => setRightPanelSubTab('pending')}
+                                        >
+                                            待回访清单 ({callbackItems.filter(c => c.status === 'pending').length})
+                                            {rightPanelSubTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-neon-blue" />}
+                                        </button>
+                                        <button 
+                                            className={`text-xs font-bold transition-colors relative ${rightPanelSubTab === 'completed' ? 'text-neon-blue pb-1' : 'text-gray-400 hover:text-white'}`}
+                                            onClick={() => setRightPanelSubTab('completed')}
+                                        >
+                                            已回访清单 ({callbackItems.filter(c => c.status === 'completed').length})
+                                            {rightPanelSubTab === 'completed' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-neon-blue" />}
+                                        </button>
+                                    </div>
+                                    {rightPanelSubTab === 'pending' && (
+                                        <div className="flex items-center gap-1.5">
+                                            <input 
+                                                type="checkbox" 
+                                                id="filter-fail"
+                                                className="w-3.5 h-3.5 accent-red-500 cursor-pointer" 
+                                                checked={isCallFailedFilterActive}
+                                                onChange={() => setIsCallFailedFilterActive(!isCallFailedFilterActive)}
+                                            />
+                                            <label htmlFor="filter-fail" className={`text-[10px] cursor-pointer transition-colors ${isCallFailedFilterActive ? 'text-red-400' : 'text-gray-400 hover:text-white'}`}>外呼失败</label>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="space-y-[10px]">
                                     {displayItems.length > 0 ? displayItems.map((item) => (
-                                        <div key={item.id} className="grid grid-cols-2 gap-px bg-[#094F8B]/[0.03] border border-blue-500/20 rounded overflow-hidden">
-                                            <InfoBox label="订单月份" value={item.orderMonth} />
-                                            <InfoBox label="场景类别" value={item.scenarioCategory} />
+                                        <div key={item.id} className="grid grid-cols-2 gap-px bg-[#094F8B]/[0.03] border border-blue-500/20 rounded overflow-hidden transition-all duration-300">
+                                            <InfoBox label="客户信息" value={`${item.customerName} (${item.customerCode})`} fullWidth />
                                             <InfoBox label="商品名称" value={item.productName} />
+                                            <InfoBox label="场景类别" value={item.scenarioCategory} />
                                             <InfoBox label="地市" value={item.city} />
-                                            <InfoBox label="客户名称" value={item.customerName} fullWidth />
-                                            <div className="p-2 border border-blue-500/20 bg-[#094F8B]/[0.03] flex items-center justify-between col-span-2">
-                                                <div className="flex items-center">
-                                                    <div className="text-[12px] text-white whitespace-nowrap mr-1">回访电话:</div>
-                                                    <div className="text-xs text-gray-200">{item.callbackPhone}</div>
-                                                </div>
+                                            <InfoBox label="电话" value={item.callbackPhone} />
+                                            
+                                            <div className={`p-2 border border-blue-500/20 bg-[#094F8B]/[0.03] flex items-center justify-between col-span-2 ${item.callFailed && rightPanelSubTab === 'pending' ? 'bg-red-500/10' : ''}`}>
                                                 {rightPanelSubTab === 'pending' ? (
-                                                    <button 
-                                                        onClick={() => handleOpenCallbackModal(item.id)}
-                                                        className="text-neon-blue underline text-xs hover:text-white"
-                                                    >
-                                                        回访结果录入
-                                                    </button>
+                                                    <>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                className="w-3.5 h-3.5 accent-red-500 cursor-pointer" 
+                                                                checked={item.callFailed}
+                                                                onChange={() => handleToggleCallFailed(item.id)}
+                                                            />
+                                                            <div className={`text-[12px] whitespace-nowrap transition-colors ${item.callFailed ? 'text-red-400 font-medium' : 'text-gray-400'}`}>外呼失败</div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => handleOpenCallbackModal(item.id)}
+                                                            className="text-neon-blue underline text-xs hover:text-white"
+                                                        >
+                                                            回访结果录入
+                                                        </button>
+                                                    </>
                                                 ) : (
-                                                    <span className="text-green-400 text-xs flex items-center gap-1">
-                                                        <CheckCircleIcon /> 已回访
-                                                    </span>
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <div className="text-[11px] text-gray-400">回访时间: <span className="text-blue-200">{item.callbackTime || '2025-02-14 15:30:00'}</span></div>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -823,7 +877,7 @@ const RightTab = ({ label, active, onClick }: { label: string, active: boolean, 
 
 const InfoBox = ({ label, value, fullWidth = false }: { label: string, value: string, fullWidth?: boolean }) => (
     <div className={`p-2 border border-blue-500/20 bg-[#094F8B]/[0.03] ${fullWidth ? 'col-span-2' : ''} flex items-center`}>
-        <div className="text-[12px] text-white whitespace-nowrap mr-1">{label}:</div>
-        <div className="text-xs text-gray-200 truncate" title={value}>{value}</div>
+        <div className="text-[12px] text-gray-400 whitespace-nowrap mr-1">{label}:</div>
+        <div className="text-xs text-white truncate" title={value}>{value}</div>
     </div>
 );

@@ -575,7 +575,7 @@ const getRandomAddress = (cityName: string) => {
 // Generate Mock Data for Subscription
 export const generateSubscriptionMockData = (count: number): SubscriptionRecord[] => {
     const data: SubscriptionRecord[] = [];
-    const serviceTypes = ["数据专线", "MPLS-VPN专线", "互联网专线"];
+    const serviceTypes = ["数据专线", "MPLS-VPN专线", "互联网专线", "企宽"];
     const serviceLevels = ["跨境", "跨省", "跨地市", "本地"];
     const assuranceLevels = ["AAA", "AA", "A", "普通"];
     const statuses = ["正常", "停机", "测试"];
@@ -584,7 +584,7 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
 
     for (let i = 0; i < count; i++) {
         const { productInstance, circuitCode } = generateCommonFields(i, 'Sub');
-        const serviceType = serviceTypes[Math.floor(Math.random() * serviceTypes.length)];
+        const serviceType = serviceTypes[i % serviceTypes.length]; // Use modulo to ensure even distribution
         const serviceLevel = serviceLevels[Math.floor(Math.random() * serviceLevels.length)];
         const bandwidth = [10, 50, 100, 200, 500, 1000][Math.floor(Math.random() * 6)] + 'M';
         const customerName = customers[Math.floor(Math.random() * customers.length)];
@@ -624,7 +624,10 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
             addressZ = zAddrData.address;
         }
 
-        data.push({
+        const isEnterpriseBroadband = serviceType === '企宽';
+        const broadbandAccount = isEnterpriseBroadband ? `TEST_KD_${100000 + i}` : '';
+
+        const record: SubscriptionRecord = {
             id: `sub-${i}`,
             productInstance,
             serviceType,
@@ -645,7 +648,10 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
             districtZ,
             addressZ,
             accessTypeZ,
-        });
+            businessCategory: isEnterpriseBroadband ? '企宽' : '专线',
+            broadbandAccount: broadbandAccount,
+        };
+        data.push(record);
     }
     return data;
 }
@@ -731,6 +737,14 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
         complaintDate.setHours(complaintDate.getHours() + deadlineHours);
         const slaDeadline = complaintDate.toISOString().replace('T', ' ').substring(0, 19);
 
+        const alarmDate = new Date(timeStr.replace(' ', 'T'));
+        const discoveryDate = new Date(alarmDate.getTime() + (Math.floor(Math.random() * 30) + 5) * 60000); // 5 to 35 minutes later
+        const alarmTime = timeStr;
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const discoveryTime = `${discoveryDate.getFullYear()}-${pad(discoveryDate.getMonth() + 1)}-${pad(discoveryDate.getDate())} ${pad(discoveryDate.getHours())}:${pad(discoveryDate.getMinutes())}:${pad(discoveryDate.getSeconds())}`;
+        const faultSnapshot = `快照-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}.png`;
+        const presentation = '查看呈现';
+
         const record: ComplaintRecord = {
             id: `comp-${i}`,
             ticketNo: `TS-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}${(new Date().getDate()).toString().padStart(2, '0')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
@@ -743,6 +757,10 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
             serviceAddressZ: `${cityZ}${addrZ.district}${addrZ.address}`,
             complaintContent: realComplaints[Math.floor(Math.random() * realComplaints.length)],
             faultTime: timeStr,
+            alarmTime,
+            discoveryTime,
+            faultSnapshot,
+            presentation,
             complaintTime: timeStr, // "派单时间"
             contactPerson: `联系人-${i}`,
             contactPhone: `1380000${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,

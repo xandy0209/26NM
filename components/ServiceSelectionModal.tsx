@@ -15,25 +15,23 @@ interface ServiceSelectionModalProps {
 export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ isOpen, onClose, onConfirm }) => {
   const [filters, setFilters] = useState({
     keyword: '',
+    businessCategory: '专线',
     serviceType: '',
     city: ''
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filteredData, setFilteredData] = useState<SubscriptionRecord[]>(MOCK_SUBSCRIPTION_DATA);
+  const [filteredData, setFilteredData] = useState<SubscriptionRecord[]>(MOCK_SUBSCRIPTION_DATA.filter(item => item.businessCategory === '专线'));
   const [pagination, setPagination] = useState({
       currentPage: 1,
       pageSize: 10
   });
 
-  // Reset when opening
+  // Sync filtered data when filters change or modal opens
   useEffect(() => {
     if (isOpen) {
-        setFilteredData(MOCK_SUBSCRIPTION_DATA);
-        setSelectedId(null);
-        setFilters({ keyword: '', serviceType: '', city: '' });
-        setPagination({ currentPage: 1, pageSize: 10 });
+        handleSearch();
     }
-  }, [isOpen]);
+  }, [isOpen, filters.businessCategory, filters.city]);
 
   const handleSearch = () => {
     const lowerKeyword = filters.keyword.toLowerCase();
@@ -47,13 +45,14 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ is
                              (item.addressA && item.addressA.toLowerCase().includes(lowerKeyword)) || 
                              (item.addressZ && item.addressZ.toLowerCase().includes(lowerKeyword));
                              
+        const matchCategory = !filters.businessCategory || item.businessCategory === filters.businessCategory;
         const matchType = !filters.serviceType || item.serviceType.toLowerCase().includes(lowerType);
         const matchCity = !filters.city || item.cityA === filters.city || item.cityZ === filters.city;
         
-        return matchKeyword && matchType && matchCity;
+        return matchKeyword && matchCategory && matchType && matchCity;
     });
     setFilteredData(filtered);
-    setSelectedId(null); // Clear selection on new search
+    setSelectedId(null);
     setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
@@ -89,22 +88,32 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ is
         {/* Search Bar: #13284c/30 */}
         <div className="p-4 bg-[#13284c]/30 border-b border-blue-500/10 flex items-center gap-3 shrink-0">
             <StyledInput 
-                placeholder="客户名称/客户编号/产品实例/业务地址" 
+                placeholder="客户名称/客户编号/产品实例/电路编号/业务地址" 
                 className="w-[350px]"
                 value={filters.keyword}
                 onChange={e => setFilters({...filters, keyword: e.target.value})}
             />
             <StyledSelect 
                 className="w-[180px]"
-                value={filters.serviceType}
-                onChange={e => setFilters({...filters, serviceType: e.target.value})}
+                value={filters.businessCategory}
+                onChange={e => setFilters({...filters, businessCategory: e.target.value, serviceType: ''})}
             >
-                <option value="">所有业务类型</option>
                 <option value="专线">专线</option>
-                <option value="互联网">互联网</option>
-                <option value="MPLS-VPN">MPLS-VPN</option>
-                <option value="数据专线">数据专线</option>
+                <option value="企宽">企宽</option>
             </StyledSelect>
+            {filters.businessCategory === '专线' && (
+                <StyledSelect 
+                    className="w-[180px]"
+                    value={filters.serviceType}
+                    onChange={e => setFilters({...filters, serviceType: e.target.value})}
+                >
+                    <option value="">所有业务类型</option>
+                    <option value="数据专线">数据专线</option>
+                    <option value="互联网专线">互联网专线</option>
+                    <option value="语音专线">语音专线</option>
+                    <option value="MPLS-VPN专线">MPLS-VPN专线</option>
+                </StyledSelect>
+            )}
             <StyledSelect 
                  className="w-[180px]"
                  value={filters.city}
@@ -115,37 +124,42 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ is
                     <option key={c.code} value={c.name}>{c.name}</option>
                 ))}
             </StyledSelect>
-             <StyledButton variant="toolbar" onClick={handleSearch} icon={<SearchIcon />}>
+            <StyledButton variant="toolbar" onClick={handleSearch} icon={<SearchIcon />}>
                 查询
             </StyledButton>
         </div>
 
         {/* Table List: #0b1730/50 */}
         <div className="flex-1 overflow-auto p-0 scrollbar-thin bg-[#0b1730]/50">
-            {/* 
-                Use border-separate to allow sticky headers to keep their borders.
-                Sticky positioning on th elements ensures the header stays fixed including its border.
-            */}
             <table className="w-full text-left border-separate border-spacing-0 text-xs">
                 <thead className="text-blue-100">
                     <tr>
                         <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">客户名称</th>
                         <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">客户编号</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">业务类型</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">产品实例</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">电路代号</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">A端地市</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">A端地址</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">Z端地市</th>
-                        <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">Z端地址</th>
+                        {filters.businessCategory === '企宽' ? (
+                            <>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">业务类型</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">宽带账号</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">地市</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">区县</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">接入地址</th>
+                            </>
+                        ) : (
+                            <>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">业务类型</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">产品实例</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">电路代号</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">A端地市</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">A端地址</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">Z端地市</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold whitespace-nowrap shadow-sm">Z端地址</th>
+                            </>
+                        )}
                     </tr>
                 </thead>
                 <tbody>
                     {paginatedData.length > 0 ? (
-                        paginatedData.map((row, idx) => {
-                            const isDataLine = row.serviceType === '数据专线';
-                            
-                            return (
+                        paginatedData.map((row, idx) => (
                             <tr 
                                 key={row.id}
                                 onClick={() => setSelectedId(row.id)}
@@ -157,18 +171,30 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ is
                             >
                                 <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.customerName}</td>
                                 <td className="p-3 text-blue-300 border-r border-blue-500/5 border-b border-blue-500/10">{row.customerCode}</td>
-                                <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType}</td>
-                                <td className="p-3 font-mono text-neon-blue border-r border-blue-500/5 border-b border-blue-500/10">{row.productInstance}</td>
-                                <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.circuitCode}</td>
-                                <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.cityA}</td>
-                                <td className="p-3 text-gray-300 border-r border-blue-500/5 border-b border-blue-500/10 max-w-[150px] truncate" title={row.addressA}>{row.addressA}</td>
-                                <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{isDataLine ? row.cityZ : '-'}</td>
-                                <td className="p-3 text-gray-300 border-b border-blue-500/10 max-w-[150px] truncate" title={isDataLine ? row.addressZ : ''}>{isDataLine ? row.addressZ : '-'}</td>
+                                {row.businessCategory === '企宽' ? (
+                                    <>
+                                        <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType}</td>
+                                        <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.broadbandAccount || '无账号'}</td>
+                                        <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.cityA}</td>
+                                        <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.districtA}</td>
+                                        <td className="p-3 text-gray-300 border-b border-blue-500/10 max-w-[150px] truncate" title={row.addressA}>{row.addressA}</td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType}</td>
+                                        <td className="p-3 font-mono text-neon-blue border-r border-blue-500/5 border-b border-blue-500/10">{row.productInstance}</td>
+                                        <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.circuitCode}</td>
+                                        <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.cityA}</td>
+                                        <td className="p-3 text-gray-300 border-r border-blue-500/5 border-b border-blue-500/10 max-w-[150px] truncate" title={row.addressA}>{row.addressA}</td>
+                                        <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType === '数据专线' ? row.cityZ : '-'}</td>
+                                        <td className="p-3 text-gray-300 border-b border-blue-500/10 max-w-[150px] truncate" title={row.serviceType === '数据专线' ? row.addressZ : ''}>{row.serviceType === '数据专线' ? row.addressZ : '-'}</td>
+                                    </>
+                                )}
                             </tr>
-                        )})
+                        ))
                     ) : (
                         <tr>
-                            <td colSpan={9} className="p-8 text-center text-blue-300/60 border-b border-blue-500/10">暂无数据</td>
+                            <td colSpan={filters.businessCategory === '企宽' ? 7 : 9} className="p-8 text-center text-blue-300/60 border-b border-blue-500/10">暂无数据</td>
                         </tr>
                     )}
                 </tbody>

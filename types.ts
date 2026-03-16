@@ -173,6 +173,8 @@ export interface SubscriptionRecord {
   districtZ: string;        // Z端所属区县
   addressZ: string;         // Z端地址
   accessTypeZ: string;      // Z端接入方式
+  businessCategory: string; // 业务分类
+  broadbandAccount: string; // 宽带账号
 }
 
 export interface AlarmRecord {
@@ -222,6 +224,10 @@ export interface ComplaintRecord {
   serviceAddressZ: string;        // Z端业务地址
   complaintContent: string;       // 故障/投诉内容
   faultTime: string;              // 故障时间
+  alarmTime?: string;             // 告警时间
+  discoveryTime?: string;         // 发现时间
+  faultSnapshot?: string;         // 故障快照
+  presentation?: string;          // 呈现
   complaintTime: string;          // 投诉时间
   contactPerson: string;          // 投诉人
   contactPhone: string;           // 投诉人电话

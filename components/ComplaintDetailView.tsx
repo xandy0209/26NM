@@ -32,9 +32,12 @@ const InfoItem = ({ label, value, span = 1, highlight = false, highlightColor, m
     );
 };
 
-const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
-    <div className="flex items-center gap-3">
-        <label className="w-[80px] text-right text-xs text-white shrink-0">{label}</label>
+const FormRow = ({ label, required, children, align = 'center' }: { label: string, required?: boolean, children?: React.ReactNode, align?: 'center' | 'start' }) => (
+    <div className={`flex ${align === 'center' ? 'items-center' : 'items-start'} gap-3`}>
+        <label className={`w-[80px] text-right text-sm font-medium text-white shrink-0 ${align === 'start' ? 'pt-1.5' : ''}`}>
+            {required && <span className="text-red-500 mr-0.5">*</span>}
+            {label}
+        </label>
         <div className="flex-1 min-w-0">
             {children}
         </div>
@@ -151,7 +154,7 @@ const FlowChart = ({ stage }: { stage: string }) => {
                         })}
 
                         <path 
-                            d="M 625 48 L 625 20 L 375 20 L 375 43" 
+                            d="M 625 50 L 625 20 L 385 20 L 385 50" 
                             fill="none" 
                             stroke="#94a3b8" 
                             strokeWidth="1.5" 
@@ -160,6 +163,17 @@ const FlowChart = ({ stage }: { stage: string }) => {
                         />
                         <rect x="480" y="12" width="40" height="16" fill="#0b1730" fillOpacity="0.9" />
                         <text x="500" y="24" fill="#94a3b8" fontSize="11" textAnchor="middle">驳回</text>
+
+                        <path 
+                            d="M 365 50 L 365 20 L 125 20 L 125 50" 
+                            fill="none" 
+                            stroke="#94a3b8" 
+                            strokeWidth="1.5" 
+                            markerEnd="url(#arrow-reject)"
+                            vectorEffect="non-scaling-stroke"
+                        />
+                        <rect x="230" y="12" width="40" height="16" fill="#0b1730" fillOpacity="0.9" />
+                        <text x="250" y="24" fill="#94a3b8" fontSize="11" textAnchor="middle">驳回</text>
                     </svg>
 
                     {steps.map((step, idx) => {
@@ -293,14 +307,30 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
       customerCode: record.customerCode,
       circuitCode: record.circuitCode,
       serviceAddressA: record.serviceAddressA,
-      serviceAddressZ: record.serviceAddressZ
+      serviceAddressZ: record.serviceAddressZ,
+      cityA: record.assigneeCity || '',
+      cityZ: '',
+      broadbandAccount: '',
+      businessCategory: record.businessCategory
   });
+
+  const [processResultType, setProcessResultType] = useState<'reply' | 'reassign'>('reply');
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
 
   const [replyData, setReplyData] = useState({
       faultResult: '',
       faultType: '',
       faultCause: ''
+  });
+  const [dispatchData, setDispatchData] = useState({
+      dispatchA: true,
+      dispatchZ: false,
+      dispatchObjectA: '',
+      dispatchObjectZ: '',
+      teamA: '',
+      teamZ: '',
+      personA: '',
+      personZ: '',
   });
   const [qcData, setQcData] = useState({
       qcResult: '',
@@ -311,8 +341,19 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
 
   useEffect(() => {
       setCurrentStage(record.stage);
+      setProcessResultType('reply');
       setReplyData({ faultResult: '', faultType: '', faultCause: '' });
       setQcData({ qcResult: '', isSatisfied: '', qcRemarks: '', rejectReason: '' });
+      setDispatchData({
+          dispatchA: true,
+          dispatchZ: false,
+          dispatchObjectA: '',
+          dispatchObjectZ: '',
+          teamA: '',
+          teamZ: '',
+          personA: '',
+          personZ: '',
+      });
       setBusinessInfo({
           productType: record.productType,
           productInstance: record.productInstance,
@@ -320,7 +361,11 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
           customerCode: record.customerCode,
           circuitCode: record.circuitCode,
           serviceAddressA: record.serviceAddressA,
-          serviceAddressZ: record.serviceAddressZ
+          serviceAddressZ: record.serviceAddressZ,
+          cityA: record.assigneeCity || '',
+          cityZ: '',
+          broadbandAccount: '',
+          businessCategory: record.businessCategory
       });
   }, [record]);
 
@@ -344,13 +389,17 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
 
   const handleServiceUpdate = (sub: SubscriptionRecord) => {
     setBusinessInfo({
-        productType: sub.serviceType,
-        productInstance: sub.productInstance,
-        customerName: sub.customerName,
-        customerCode: sub.customerCode,
-        circuitCode: sub.circuitCode,
+        productType: sub.businessCategory === '企宽' ? '企宽' : sub.serviceType,
+        productInstance: sub.productInstance || '',
+        customerName: sub.customerName || '',
+        customerCode: sub.customerCode || '',
+        circuitCode: sub.circuitCode || '',
         serviceAddressA: sub.addressA || '',
-        serviceAddressZ: sub.serviceType === '数据专线' ? (sub.addressZ || '') : ''
+        serviceAddressZ: sub.serviceType === '数据专线' ? (sub.addressZ || '') : '',
+        cityA: sub.cityA || '',
+        cityZ: sub.cityZ || '',
+        broadbandAccount: sub.broadbandAccount || '',
+        businessCategory: sub.businessCategory || ''
     });
     setIsServiceModalOpen(false);
   };
@@ -429,19 +478,30 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                             )}
                         </h3>
                         <div className="grid grid-cols-3 gap-4 bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm">
-                            <InfoItem label="业务类型" value={businessInfo.productType} />
-                            <InfoItem label="产品实例" value={businessInfo.productInstance} />
-                            <InfoItem label="电路编号" value={businessInfo.circuitCode} />
-                            <InfoItem label="客户名称" value={businessInfo.customerName} />
-                            <InfoItem label="客户编号" value={businessInfo.customerCode} />
-                            
-                            {businessInfo.productType === '数据专线' ? (
+                            {(businessInfo.businessCategory === '企宽' || businessInfo.productType === '企宽') ? (
                                 <>
-                                    <InfoItem label="A端地址" value={businessInfo.serviceAddressA} span={3} />
-                                    <InfoItem label="Z端地址" value={businessInfo.serviceAddressZ} span={3} />
+                                    <InfoItem label="业务类型" value="企宽" />
+                                    <InfoItem label="宽带账号" value={businessInfo.broadbandAccount || '无'} />
+                                    <InfoItem label="客户名称" value={businessInfo.customerName} />
+                                    <InfoItem label="客户编号" value={businessInfo.customerCode} />
+                                    <InfoItem label="业务地址" value={businessInfo.serviceAddressA} span={2} />
                                 </>
                             ) : (
-                                <InfoItem label="业务地址" value={businessInfo.serviceAddressA} span={3} />
+                                <>
+                                    <InfoItem label="业务类型" value={businessInfo.productType} />
+                                    <InfoItem label="产品实例" value={businessInfo.productInstance} />
+                                    <InfoItem label="电路编号" value={businessInfo.circuitCode} />
+                                    <InfoItem label="客户名称" value={businessInfo.customerName} />
+                                    <InfoItem label="客户编号" value={businessInfo.customerCode} />
+                                    {businessInfo.productType === '数据专线' ? (
+                                        <>
+                                            <InfoItem label="A端地址" value={businessInfo.serviceAddressA} span={3} />
+                                            <InfoItem label="Z端地址" value={businessInfo.serviceAddressZ} span={3} />
+                                        </>
+                                    ) : (
+                                        <InfoItem label="业务地址" value={businessInfo.serviceAddressA} span={3} />
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
@@ -538,51 +598,194 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                     )}
 
                     {(currentStage === 'T1' || currentStage === '处理中') && (
-                        <div className="bg-blue-900/10 p-6 border border-blue-500/20 rounded-sm space-y-4">
-                            <h3 className="text-sm font-bold text-neon-blue uppercase tracking-wider border-l-2 border-neon-blue pl-2">
-                                故障处理回单
-                            </h3>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                <FormRow label="故障类型">
-                                    <StyledSelect 
-                                        className="w-full"
-                                        value={replyData.faultType}
-                                        onChange={(e) => setReplyData({...replyData, faultType: e.target.value})}
-                                    >
-                                        <option value="">请选择</option>
-                                        <option value="光缆故障">光缆故障</option>
-                                        <option value="设备故障">设备故障</option>
-                                        <option value="配置错误">配置错误</option>
-                                        <option value="电力故障">电力故障</option>
-                                        <option value="误报">误报</option>
-                                    </StyledSelect>
+                        <div className="p-6 border border-blue-500/20 rounded-sm space-y-6 flex flex-col items-center">
+                            <div className="flex flex-col gap-4 w-full max-w-2xl">
+                                <h3 className="text-sm font-bold text-neon-blue uppercase tracking-wider border-l-2 border-neon-blue pl-2">
+                                    工单处理
+                                </h3>
+                                <FormRow label="处理结果" required>
+                                    <div className="flex items-center gap-6">
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input 
+                                                type="radio" 
+                                                name="processResultType" 
+                                                checked={processResultType === 'reply'} 
+                                                onChange={() => setProcessResultType('reply')}
+                                                className="accent-neon-blue w-3.5 h-3.5 cursor-pointer"
+                                            />
+                                            <span className={`text-sm font-medium ${processResultType === 'reply' ? 'text-neon-blue font-bold' : 'text-white/60 group-hover:text-white'}`}>回单</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input 
+                                                type="radio" 
+                                                name="processResultType" 
+                                                checked={processResultType === 'reassign'} 
+                                                onChange={() => setProcessResultType('reassign')}
+                                                className="accent-neon-blue w-3.5 h-3.5 cursor-pointer"
+                                            />
+                                            <span className={`text-sm font-medium ${processResultType === 'reassign' ? 'text-neon-blue font-bold' : 'text-white/60 group-hover:text-white'}`}>转派</span>
+                                        </label>
+                                    </div>
                                 </FormRow>
-                                <FormRow label="处理结果">
-                                    <StyledSelect 
-                                        className="w-full"
-                                        value={replyData.faultResult}
-                                        onChange={(e) => setReplyData({...replyData, faultResult: e.target.value})}
-                                    >
-                                        <option value="">请选择</option>
-                                        <option value="已修复">已修复</option>
-                                        <option value="观察中">观察中</option>
-                                        <option value="未发现异常">未发现异常</option>
-                                    </StyledSelect>
-                                </FormRow>
-                                <div className="col-span-2 flex items-start gap-3">
-                                    <label className="w-[80px] text-right text-xs text-white shrink-0 pt-1.5">处理说明</label>
-                                    <textarea 
-                                        className="flex-1 bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none leading-relaxed"
-                                        value={replyData.faultCause}
-                                        onChange={(e) => setReplyData({...replyData, faultCause: e.target.value})}
-                                        placeholder="请详细描述故障处理过程及结果..."
-                                    ></textarea>
-                                </div>
-                                <div className="col-span-2 flex justify-end gap-3 mt-2">
-                                    <StyledButton variant="secondary">暂存</StyledButton>
-                                    <StyledButton variant="primary" onClick={handleReplySubmit}>提交回单</StyledButton>
-                                </div>
                             </div>
+
+                            {processResultType === 'reply' ? (
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-4 animate-[fadeIn_0.2s_ease-out] w-full max-w-2xl">
+                                    <FormRow label="故障类型" required>
+                                        <StyledSelect 
+                                            className="w-full"
+                                            value={replyData.faultType}
+                                            onChange={(e) => setReplyData({...replyData, faultType: e.target.value})}
+                                        >
+                                            <option value="">请选择</option>
+                                            <option value="光缆故障">光缆故障</option>
+                                            <option value="设备故障">设备故障</option>
+                                            <option value="配置错误">配置错误</option>
+                                            <option value="电力故障">电力故障</option>
+                                            <option value="误报">误报</option>
+                                        </StyledSelect>
+                                    </FormRow>
+                                    <FormRow label="处理结果" required>
+                                        <StyledSelect 
+                                            className="w-full"
+                                            value={replyData.faultResult}
+                                            onChange={(e) => setReplyData({...replyData, faultResult: e.target.value})}
+                                        >
+                                            <option value="">请选择</option>
+                                            <option value="已修复">已修复</option>
+                                            <option value="观察中">观察中</option>
+                                            <option value="未发现异常">未发现异常</option>
+                                        </StyledSelect>
+                                    </FormRow>
+                                    <div className="col-span-2">
+                                        <FormRow label="处理说明" required align="start">
+                                            <textarea 
+                                                className="w-full bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none leading-relaxed"
+                                                value={replyData.faultCause}
+                                                onChange={(e) => setReplyData({...replyData, faultCause: e.target.value})}
+                                                placeholder="请详细描述故障处理过程及结果..."
+                                            ></textarea>
+                                        </FormRow>
+                                    </div>
+                                    <div className="col-span-2 flex justify-end gap-3 mt-2">
+                                        <StyledButton variant="secondary">暂存</StyledButton>
+                                        <StyledButton variant="primary" onClick={handleReplySubmit}>提交回单</StyledButton>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 animate-[fadeIn_0.2s_ease-out] w-full max-w-2xl">
+                                    <div className="p-0 space-y-6">
+                                        {/* A端下派 */}
+                                        <div className="space-y-3">
+                                            <div className="space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                                <FormRow label="下派对象" required={dispatchData.dispatchA}>
+                                                    <StyledSelect 
+                                                        value={dispatchData.dispatchObjectA}
+                                                        onChange={(e) => setDispatchData({...dispatchData, dispatchObjectA: e.target.value})}
+                                                        className="w-[280px]"
+                                                        disabled={!dispatchData.dispatchA}
+                                                    >
+                                                        <option value="">请选择</option>
+                                                        <option value="铁通班组">铁通班组</option>
+                                                        <option value="分公司客响人员">分公司客响人员</option>
+                                                    </StyledSelect>
+                                                </FormRow>
+                                                {dispatchData.dispatchObjectA === '铁通班组' && (
+                                                    <FormRow label="下派班组" required={dispatchData.dispatchA}>
+                                                        <StyledSelect 
+                                                            value={dispatchData.teamA}
+                                                            onChange={(e) => setDispatchData({...dispatchData, teamA: e.target.value})}
+                                                            className="w-[280px]"
+                                                        >
+                                                            <option value="">请选择</option>
+                                                            <option value="铁通维护一班">铁通维护一班</option>
+                                                            <option value="铁通抢修二班">铁通抢修二班</option>
+                                                            <option value="综合维护组">综合维护组</option>
+                                                        </StyledSelect>
+                                                    </FormRow>
+                                                )}
+                                                {dispatchData.dispatchObjectA === '分公司客响人员' && (
+                                                    <FormRow label="下派人员" required={dispatchData.dispatchA}>
+                                                        <StyledSelect 
+                                                            value={dispatchData.personA}
+                                                            onChange={(e) => setDispatchData({...dispatchData, personA: e.target.value})}
+                                                            className="w-[280px]"
+                                                        >
+                                                            <option value="">请选择</option>
+                                                            <option value="王工 (13811112222)">王工 (13811112222)</option>
+                                                            <option value="赵工 (13833334444)">赵工 (13833334444)</option>
+                                                            <option value="孙工 (13855556666)">孙工 (13855556666)</option>
+                                                        </StyledSelect>
+                                                    </FormRow>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Z端下派 - 仅当是数据专线且有Z端地址时显示 */}
+                                        {businessInfo.productType === '数据专线' && businessInfo.cityZ && (
+                                            <div className="space-y-3 border-t border-blue-500/10 pt-6">
+                                                <div className="space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                                    <FormRow label="下派对象" required={dispatchData.dispatchZ}>
+                                                        <StyledSelect 
+                                                            value={dispatchData.dispatchObjectZ}
+                                                            onChange={(e) => setDispatchData({...dispatchData, dispatchObjectZ: e.target.value})}
+                                                            className="w-[280px]"
+                                                            disabled={!dispatchData.dispatchZ}
+                                                        >
+                                                            <option value="">请选择</option>
+                                                            <option value="铁通班组">铁通班组</option>
+                                                            <option value="分公司客响人员">分公司客响人员</option>
+                                                        </StyledSelect>
+                                                    </FormRow>
+                                                    {dispatchData.dispatchObjectZ === '铁通班组' && (
+                                                        <FormRow label="下派班组" required={dispatchData.dispatchZ}>
+                                                            <StyledSelect 
+                                                                value={dispatchData.teamZ}
+                                                                onChange={(e) => setDispatchData({...dispatchData, teamZ: e.target.value})}
+                                                                className="w-[280px]"
+                                                            >
+                                                                <option value="">请选择</option>
+                                                                <option value="铁通维护一班">铁通维护一班</option>
+                                                                <option value="铁通抢修二班">铁通抢修二班</option>
+                                                                <option value="综合维护组">综合维护组</option>
+                                                            </StyledSelect>
+                                                        </FormRow>
+                                                    )}
+                                                    {dispatchData.dispatchObjectZ === '分公司客响人员' && (
+                                                        <FormRow label="下派人员" required={dispatchData.dispatchZ}>
+                                                            <StyledSelect 
+                                                                value={dispatchData.personZ}
+                                                                onChange={(e) => setDispatchData({...dispatchData, personZ: e.target.value})}
+                                                                className="w-[280px]"
+                                                            >
+                                                                <option value="">请选择</option>
+                                                                <option value="周工 (13911112222)">周工 (13911112222)</option>
+                                                                <option value="吴工 (13933334444)">吴工 (13933334444)</option>
+                                                                <option value="郑工 (13955556666)">郑工 (13955556666)</option>
+                                                            </StyledSelect>
+                                                        </FormRow>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-end gap-3 mt-4">
+                                        <StyledButton variant="secondary">暂存</StyledButton>
+                                        <StyledButton 
+                                            variant="primary" 
+                                            onClick={() => {
+                                                if (!dispatchData.dispatchA && !dispatchData.dispatchZ) {
+                                                    alert('请至少选择一个下派地市');
+                                                    return;
+                                                }
+                                                alert('工单已成功转派！');
+                                            }}
+                                        >
+                                            确认转派
+                                        </StyledButton>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

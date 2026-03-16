@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MicIcon, CheckCircleIcon, XIcon } from './Icons';
+import { MicIcon, CheckCircleIcon, XIcon, PaperclipIcon, TrashIcon } from './Icons';
 import { StyledInput, StyledButton, StyledSelect } from './UI';
 import { ServiceSelectionModal } from './ServiceSelectionModal';
 import { SubscriptionRecord } from '../types';
@@ -74,6 +74,9 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
     teamA: '',           
     teamZ: '',           
   });
+
+  const [attachments, setAttachments] = useState<{ id: string, name: string, size: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -245,8 +248,6 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
                         >
                             <option value="">请选择</option>
                             <option value="专线">专线</option>
-                            <option value="5G专网">5G专网</option>
-                            <option value="物联网">物联网</option>
                             <option value="企宽">企宽</option>
                         </StyledSelect>
                     </FormRow>
@@ -263,8 +264,6 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
                             <option value="数据专线">数据专线</option>
                             <option value="互联网专线">互联网专线</option>
                             <option value="MPLS-VPN">MPLS-VPN</option>
-                            <option value="5G专网">5G专网</option>
-                            <option value="物联网">物联网</option>
                             <option value="企宽">企宽</option>
                             <option value="云网">云网</option>
                         </StyledSelect>
@@ -340,6 +339,66 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
                             >
                                 <MicIcon />
                             </button>
+                        </div>
+                    </div>
+
+                    <div className="col-span-3 flex items-start gap-3 mt-2">
+                        <label className="w-[70px] text-right text-xs text-blue-300 shrink-0 pt-1.5 select-none">
+                            附件上传
+                        </label>
+                        <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/40 border border-blue-500/50 text-blue-100 text-xs hover:bg-blue-800/60 transition-colors rounded-sm"
+                                >
+                                    <PaperclipIcon />
+                                    选择文件
+                                </button>
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const newFile = {
+                                                id: Math.random().toString(36).substr(2, 9),
+                                                name: file.name,
+                                                size: (file.size / 1024).toFixed(1) + ' KB'
+                                            };
+                                            setAttachments(prev => [...prev, newFile]);
+                                            e.target.value = ''; // Reset
+                                        }
+                                    }}
+                                />
+                                <span className="text-[10px] text-blue-400/60 italic">支持图片、文档、压缩包等格式</span>
+                            </div>
+                            
+                            {attachments.length > 0 && (
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    {attachments.map(file => (
+                                        <div key={file.id} className="flex items-center justify-between px-3 py-2 bg-blue-950/40 border border-blue-500/20 rounded-sm group">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <PaperclipIcon />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-xs text-blue-100 truncate" title={file.name}>{file.name}</span>
+                                                    <span className="text-[10px] text-blue-400/60">{file.size}</span>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setAttachments(prev => prev.filter(a => a.id !== file.id))}
+                                                className="p-1 text-red-400/60 hover:text-red-400 hover:bg-red-400/10 transition-all rounded"
+                                                title="删除附件"
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

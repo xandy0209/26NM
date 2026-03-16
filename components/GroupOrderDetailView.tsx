@@ -92,7 +92,7 @@ const generateDetailTickets = (order: GroupOrderRecord, count: number = 46) => {
         // If the order is '待回单' or '已完成' or '撤单', force tickets to be non-active (e.g. History or Cancelled)
         if (order.status === '已完成' || order.status === '待回单') {
              itemStatus = '历史';
-        } else if (order.status === '撤单') {
+        } else if (order.status === '已撤单') {
              itemStatus = '撤单';
         } else {
             const r = Math.random();
@@ -123,7 +123,7 @@ const generateDetailTickets = (order: GroupOrderRecord, count: number = 46) => {
             appointCount: Math.floor(Math.random() * 3).toString(),
             changeCount: Math.floor(Math.random() * 2).toString(),
             deadline: order.deliveryDeadline || `2026-02-14 12:00:00`,
-            finishTime: (order.status === '已完成' || order.status === '撤单' || itemStatus === '历史' || itemStatus === '撤单') ? order.completionTime : '-'
+            finishTime: (order.status === '已完成' || order.status === '已撤单' || itemStatus === '历史' || itemStatus === '撤单') ? order.completionTime : '-'
         };
     });
 };
