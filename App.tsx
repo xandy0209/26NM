@@ -17,6 +17,7 @@ import { WorkbenchView } from './components/WorkbenchView';
 import { GroupOrderView, getInitialGroupOrderState, GroupOrderViewState } from './components/GroupOrderView';
 import { GroupOrderDetailView } from './components/GroupOrderDetailView';
 import { GroupOrderTaskDetailView } from './components/GroupOrderTaskDetailView';
+import ImportantBusinessView from './components/ImportantBusinessView';
 
 const Th = ({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th className={`p-3 font-semibold border-b border-blue-500/40 whitespace-nowrap text-xs ${className}`} {...props}>
@@ -36,6 +37,7 @@ const TABS_CONFIG: { id: string; label: string }[] = [
   { id: 'complaint', label: '投诉支撑' },
   { id: 'ai-chat', label: '智能助手' },
   { id: 'group-order', label: '团单管理' },
+  { id: 'important-business', label: '重要业务管理' },
 ];
 
 const MENU_ITEMS = [
@@ -147,7 +149,6 @@ export const App: React.FC = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   const [apiKey, setApiKey] = useState<string>('');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     const savedKey = localStorage.getItem('GEMINI_API_KEY');
@@ -161,7 +162,7 @@ export const App: React.FC = () => {
     localStorage.setItem('GEMINI_API_KEY', key);
     // Clear existing chat sessions to force re-initialization with new key
     chatSessionRefs.current = {};
-    setIsSettingsOpen(false);
+    setUIState({ isSettingsOpen: false });
   };
 
   // Data States
@@ -484,15 +485,53 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     setActiveTab('ai-chat');
   };
 
-  const getFilterKey = () => activeTab === 'complaint' ? `complaint-${activeComplaintTabId || 'default'}` : activeTab;
+  const getFilterKey = (tId?: string, cTabId?: string) => {
+    const aTab = tId || activeTab;
+    const acTabId = cTabId || activeComplaintTabId;
+    return aTab === 'complaint' ? `complaint-${acTabId || 'default'}` : aTab;
+  };
   const currentFilters = useMemo(() => tabFilters[getFilterKey()] || initialFilterState, [tabFilters, activeTab, activeComplaintTabId]);
   const setFilters = (newFilters: FilterState) => setTabFilters(prev => ({ ...prev, [getFilterKey()]: newFilters }));
-  const [pagination, setPagination] = useState({ currentPage: 1, pageSize: 15 });
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportFilename, setExportFilename] = useState('');
-  const [isComplaintModalOpen, setIsComplaintModalOpen] = useState(false);
-  const [complaintModalStage, setComplaintModalStage] = useState<'T0' | 'T1' | 'T2'>('T0');
-  const [selectedComplaint, setSelectedComplaint] = useState<ComplaintRecord | undefined>(undefined);
+  
+  const [tabPagination, setTabPagination] = useState<Record<string, { currentPage: number, pageSize: number }>>({});
+  const pagination = useMemo(() => tabPagination[getFilterKey()] || { currentPage: 1, pageSize: 15 }, [tabPagination, activeTab, activeComplaintTabId]);
+  const setPagination = (newPagination: any) => {
+      setTabPagination(prev => {
+          const current = prev[getFilterKey()] || { currentPage: 1, pageSize: 15 };
+          const updated = typeof newPagination === 'function' ? newPagination(current) : newPagination;
+          return { ...prev, [getFilterKey()]: updated };
+      });
+  };
+
+  const [tabUIStates, setTabUIStates] = useState<Record<string, any>>({});
+  
+  const getUIState = (tId?: string, cTabId?: string) => {
+    const key = getFilterKey(tId, cTabId);
+    return tabUIStates[key] || {
+      isExportModalOpen: false,
+      exportFilename: '',
+      isComplaintModalOpen: false,
+      complaintModalStage: 'T0',
+      selectedComplaint: undefined,
+      isSettingsOpen: false
+    };
+  };
+
+  const setUIState = (updates: any, tId?: string, cTabId?: string) => {
+    const key = getFilterKey(tId, cTabId);
+    setTabUIStates(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] || {
+        isExportModalOpen: false,
+        exportFilename: '',
+        isComplaintModalOpen: false,
+        complaintModalStage: 'T0',
+        selectedComplaint: undefined,
+        isSettingsOpen: false
+      }), ...updates }
+    }));
+  };
+
   const [complaintSidebarCollapsed, setComplaintSidebarCollapsed] = useState(false);
   const [activeSidebarFolder, setActiveSidebarFolder] = useState<string>('');
 
@@ -510,8 +549,6 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     setComplaintData(MOCK_COMPLAINT_DATA); setFilteredComplaintData(MOCK_COMPLAINT_DATA);
     getChatInstance('default');
   }, []);
-
-  useEffect(() => { setPagination(prev => ({ ...prev, currentPage: 1 })); }, [activeTab, activeComplaintTabId]);
 
   const handleCloseTab = (e: React.MouseEvent | null, tabId: string) => {
       if (e) e.stopPropagation();
@@ -684,6 +721,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                  if (!matchesKeyword) match = false;
              }
              
+             if (f.assuranceLevel && item.aAssuranceLevel !== f.assuranceLevel && item.zAssuranceLevel !== f.assuranceLevel) match = false;
+             
              if (activeInternalTab && activeInternalTab.type !== 'detail' && activeInternalTab.type !== 'create' && activeInternalTab.type !== 'config' && activeInternalTab.type !== 'stats' && activeInternalTab.type !== 'personnel') {
                  
                  if (activeInternalTab.type === 'pending') {
@@ -773,12 +812,15 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     if (activeTab === 'route') prefix = '传输电路路由数据';
     if (activeTab === 'subscription') prefix = '订购业务信息数据';
     if (activeTab === 'complaint') prefix = `投诉支撑_${activeComplaintTabId || 'all'}_数据`;
-    setExportFilename(`${prefix}_${timestamp}.csv`);
-    setIsExportModalOpen(true);
+    
+    setUIState({
+        exportFilename: `${prefix}_${timestamp}.csv`,
+        isExportModalOpen: true
+    });
   };
 
-  const handleExportConfirm = (filename: string) => { setIsExportModalOpen(false); };
-  const handleComplaintSubmit = () => { setIsComplaintModalOpen(false); };
+  const handleExportConfirm = (filename: string) => { setUIState({ isExportModalOpen: false }); };
+  const handleComplaintSubmit = () => { setUIState({ isComplaintModalOpen: false }); };
   
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -792,18 +834,46 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
   };
 
   const renderComplaintContent = () => {
-    const activeTabObj = complaintTabs.find(t => t.id === activeComplaintTabId);
-    if (!activeTabObj) return null;
-    if (activeTabObj.type === 'create') return <ComplaintCreateView onCancel={() => handleCloseTab(null, activeTabObj.id)} onSubmit={() => { handleCloseComplaintTab(null, activeTabObj.id); handleSearch(); }} initialData={activeTabObj.initialData} />;
-    if (activeTabObj.type === 'detail' && activeTabObj.record) return <ComplaintDetailView record={activeTabObj.record} targetTab={activeTabObj.targetTab} triggerTimestamp={activeTabObj.triggerTimestamp} onTabChange={(tab) => handleDetailTabChange(activeTabObj.id, tab)} />;
-    if (activeTabObj.type === 'config') return <ConfigCapabilitiesView />;
-    if (activeTabObj.type === 'personnel') return <CustomerResponsePersonnelView />;
-    if (activeTabObj.type === 'stats') return <ComplaintStatsView />;
+    if (complaintTabs.length === 0) return null;
 
-    const isPending = activeTabObj.type === 'pending';
-    const isTodo = activeTabObj.type === 'todo';
-    const isDone = activeTabObj.type === 'done';
-    const isAll = activeTabObj.type === 'all';
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {complaintTabs.map((tab) => {
+          const isActive = activeComplaintTabId === tab.id;
+          return (
+            <div key={tab.id} className={`flex-1 flex flex-col h-full ${isActive ? '' : 'hidden'}`}>
+              {renderSingleComplaintTab(tab)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSingleComplaintTab = (tab: ComplaintTabItem) => {
+    const tabFilterKey = getFilterKey('complaint', tab.id);
+    const currentFilters = tabFilters[tabFilterKey] || initialFilterState;
+    const setFilters = (newFilters: FilterState) => setTabFilters(prev => ({ ...prev, [tabFilterKey]: newFilters }));
+    
+    const pagination = tabPagination[tabFilterKey] || { currentPage: 1, pageSize: 15 };
+    const setPagination = (newPagination: any) => {
+        setTabPagination(prev => {
+            const current = prev[tabFilterKey] || { currentPage: 1, pageSize: 15 };
+            const updated = typeof newPagination === 'function' ? newPagination(current) : newPagination;
+            return { ...prev, [tabFilterKey]: updated };
+        });
+    };
+
+    if (tab.type === 'create') return <ComplaintCreateView onCancel={() => handleCloseTab(null, tab.id)} onSubmit={() => { handleCloseComplaintTab(null, tab.id); handleSearch(); }} initialData={tab.initialData} />;
+    if (tab.type === 'detail' && tab.record) return <ComplaintDetailView record={tab.record} targetTab={tab.targetTab} triggerTimestamp={tab.triggerTimestamp} onTabChange={(t) => handleDetailTabChange(tab.id, t)} />;
+    if (tab.type === 'config') return <ConfigCapabilitiesView />;
+    if (tab.type === 'personnel') return <CustomerResponsePersonnelView />;
+    if (tab.type === 'stats') return <ComplaintStatsView />;
+
+    const isPending = tab.type === 'pending';
+    const isTodo = tab.type === 'todo';
+    const isDone = tab.type === 'done';
+    const isAll = tab.type === 'all';
     
     // ... (rest of renderComplaintContent logic stays the same)
     
@@ -815,6 +885,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
         { label: '故障描述', key: 'complaintContent' },
         { label: '业务类型', key: 'productType' }, 
         { label: '业务标识', key: 'productInstance' },
+        { label: 'A端保障等级', key: 'aAssuranceLevel' },
+        { label: 'Z端保障等级', key: 'zAssuranceLevel' },
         { label: '客户名称', key: 'customerName' },
         { label: '客户编号', key: 'customerCode' },
     ];
@@ -828,6 +900,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
         { label: '业务分类', key: 'businessCategory' },
         { label: '业务类型', key: 'productType' }, 
         { label: '业务标识', key: 'productInstance' },
+        { label: 'A端保障等级', key: 'aAssuranceLevel' },
+        { label: 'Z端保障等级', key: 'zAssuranceLevel' },
         { label: '客户名称', key: 'customerName' },
         { label: '客户编号', key: 'customerCode' },
     ];
@@ -841,6 +915,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
         { label: '业务分类', key: 'businessCategory' },
         { label: '业务类型', key: 'productType' },
         { label: '业务标识', key: 'productInstance' },
+        { label: 'A端保障等级', key: 'aAssuranceLevel' },
+        { label: 'Z端保障等级', key: 'zAssuranceLevel' },
         { label: '客户名称', key: 'customerName' },
         { label: '客户编号', key: 'customerCode' },
         { label: '完成时间', key: 'finishTime' },
@@ -855,6 +931,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
         { label: '业务分类', key: 'businessCategory' },
         { label: '业务类型', key: 'productType' },
         { label: '业务标识', key: 'productInstance' },
+        { label: 'A端保障等级', key: 'aAssuranceLevel' },
+        { label: 'Z端保障等级', key: 'zAssuranceLevel' },
         { label: '客户名称', key: 'customerName' },
         { label: '客户编号', key: 'customerCode' },
         { label: '完成时间', key: 'finishTime' },
@@ -876,6 +954,19 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)] relative">
+            <ExportModal 
+                isOpen={getUIState('complaint', tab.id).isExportModalOpen} 
+                onClose={() => setUIState({ isExportModalOpen: false }, 'complaint', tab.id)} 
+                onConfirm={handleExportConfirm} 
+                defaultFilename={getUIState('complaint', tab.id).exportFilename} 
+            />
+            <ComplaintModal 
+                isOpen={getUIState('complaint', tab.id).isComplaintModalOpen} 
+                onClose={() => setUIState({ isComplaintModalOpen: false }, 'complaint', tab.id)} 
+                onConfirm={handleComplaintSubmit} 
+                initialData={getUIState('complaint', tab.id).selectedComplaint} 
+                stage={getUIState('complaint', tab.id).complaintModalStage} 
+            />
             {/* Filter bar code omitted for brevity as it is largely unchanged, just context */}
             <div className="bg-transparent p-3 border-b border-blue-500/20 flex flex-wrap items-center gap-3 shrink-0">
                <StyledInput 
@@ -900,6 +991,18 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
 
                 {/* --- Added Filters Logic --- */}
                 
+                <StyledSelect
+                    className="w-32"
+                    value={currentFilters.assuranceLevel || ''}
+                    onChange={(e) => setFilters({...currentFilters, assuranceLevel: e.target.value})}
+                >
+                    <option value="">保障等级</option>
+                    <option value="AAA">AAA</option>
+                    <option value="AA">AA</option>
+                    <option value="A">A</option>
+                    <option value="普通">普通</option>
+                </StyledSelect>
+
                 {/* 1. Pending: Business Type, Fault Type */}
                 {isPending && (
                     <>
@@ -1009,6 +1112,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                             <td className="p-3 max-w-[200px] truncate border-b border-blue-500/10" title={record.complaintContent}>{record.complaintContent}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.productType || '-'}</td>
                                             <td className="p-3 font-mono border-b border-blue-500/10">{record.productInstance}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.aAssuranceLevel || '-'}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.zAssuranceLevel || '-'}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
                                             <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
                                         </>
@@ -1030,6 +1135,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                             <td className="p-3 border-b border-blue-500/10">{record.businessCategory}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.productType}</td>
                                             <td className="p-3 font-mono border-b border-blue-500/10">{record.productInstance}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.aAssuranceLevel || '-'}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.zAssuranceLevel || '-'}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
                                             <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
                                         </>
@@ -1045,6 +1152,8 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                                 {isDone && record.businessCategory !== '专线' ? '' : record.productType}
                                             </td>
                                             <td className="p-3 font-mono border-b border-blue-500/10">{record.productInstance}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.aAssuranceLevel || '-'}</td>
+                                            <td className="p-3 border-b border-blue-500/10">{record.zAssuranceLevel || '-'}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
                                             <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
                                             { (isDone || isAll) && <td className="p-3 font-mono text-gray-400 border-b border-blue-500/10">2026-01-11 11:30:00</td> }
@@ -1147,7 +1256,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                 {showRightArrow && ( <button onClick={() => scrollMenu('right')} className="h-full px-2 text-blue-400/50 hover:text-white transition-colors flex items-center justify-center cursor-pointer shrink-0 z-20"><ChevronRightIcon /></button> )}
            </div>
            <div className="flex items-center gap-5 text-blue-300 shrink-0 whitespace-nowrap">
-              <button className="hover:opacity-80 transition-opacity" onClick={() => setIsSettingsOpen(true)} title="系统设置"><SettingsIcon className="w-4 h-4" /></button>
+              <button className="hover:opacity-80 transition-opacity" onClick={() => setUIState({ isSettingsOpen: true }, activeTab === 'complaint' ? 'complaint' : activeTab, activeTab === 'complaint' ? activeComplaintTabId || undefined : undefined)} title="系统设置"><SettingsIcon className="w-4 h-4" /></button>
               <button className="hover:opacity-80 transition-opacity" onClick={toggleFullScreen} title="全屏显示"><img src="https://tvbox-67o.pages.dev/qp.png" alt="全屏" className="w-[10px] h-[10px]" /></button>
               <div className="h-4 w-[1px] bg-blue-500/30"></div>
               <div className="flex items-center gap-3"><span className="text-sm font-medium text-blue-100 tracking-wide shrink-0">吴军校</span><div className="w-8 h-8 rounded-full overflow-hidden border border-blue-400/50 shadow-[0_0_8px_rgba(0,210,255,0.4)] shrink-0"><img src="https://tvbox-67o.pages.dev/head.jpg" alt="User" className="w-full h-full object-cover" /></div></div>
@@ -1165,135 +1274,166 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
             )}
         </div>
         <div className="flex-1 flex flex-col p-[10px] overflow-hidden min-h-0 animate-[fadeIn_0.5s_ease-out]">
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {activeTab === 'ai-chat' ? (
-                    <div className="flex-1 flex flex-col h-full">
-                        <AIChatPanel messages={activeSessionMessages} sessions={sessions} activeSessionId={activeSessionId} onNewSession={handleNewSession} onSelectSession={handleSelectSession} onSendMessage={handleSendMessage} isLoading={isChatLoading} mode="tab" onRenameSession={handleRenameSession} onDeleteSession={handleDeleteSession} />
-                    </div>
-                ) : activeTab === 'workbench' ? (
-                    <div className="flex-1 flex flex-col h-full">
-                        <WorkbenchView />
-                    </div>
-                ) : activeTab === 'group-order' ? (
-                    <div className="flex-1 flex flex-col h-full">
-                        <GroupOrderView 
-                            viewState={groupOrderViewState}
-                            setViewState={setGroupOrderViewState}
-                            activeSubTab={groupOrderViewTab}
-                            onSubTabChange={setGroupOrderViewTab}
-                        />
-                    </div>
-                ) : visibleTabs.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-blue-300/50"> <div className="text-6xl mb-4">🗂️</div> <div className="text-xl">所有页签已关闭</div> <button onClick={handleRestoreTabs} className="mt-4 px-4 py-2 bg-blue-600/30 border border-blue-500 hover:bg-blue-600/50 text-white rounded">重新打开</button> </div>
-                ) : (
-                    <div className="flex flex-1 overflow-hidden">
-                        {activeTab === 'complaint' && (
-                            <div className={`${complaintSidebarCollapsed ? 'w-[53px]' : 'w-48'} bg-transparent border border-blue-500/30 mr-2 transition-all duration-500 ease-in-out flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.3)]`}>
-                                <div className={`h-[35px] flex items-center ${complaintSidebarCollapsed ? 'justify-center' : 'justify-between px-3'} border-b border-blue-500/20 bg-transparent shrink-0`}> 
-                                    {!complaintSidebarCollapsed && <span className="text-blue-100 font-bold tracking-wider text-[12px] whitespace-nowrap">投诉支撑</span>}
-                                    <button onClick={() => setComplaintSidebarCollapsed(!complaintSidebarCollapsed)} className="text-blue-300 hover:text-white transition-colors flex items-center justify-center"> 
-                                        <div className="w-5 h-5 flex items-center justify-center">{complaintSidebarCollapsed ? <SidebarOpenIcon /> : <SidebarCloseIcon />}</div> 
-                                    </button> 
-                                </div>
-                                <div className="flex-1 py-2 overflow-y-auto custom-scrollbar flex flex-col gap-4">
-                                    {SIDEBAR_GROUPS.map((group) => (
-                                        <div key={group.id} className="flex flex-col gap-1">
-                                            {!complaintSidebarCollapsed && ( <div className="px-3 py-1 text-xs text-blue-400/70 font-bold uppercase tracking-wider border-b border-blue-500/10 mb-1 mx-1">{group.title}</div> )}
-                                            {group.items.map(item => ( <div key={item.id} onClick={() => handleSidebarClick(item.id)} className={`relative flex items-center gap-3 px-3 py-2 cursor-pointer transition-all mx-1 rounded-sm ${activeSidebarFolder === item.id ? 'bg-gradient-to-r from-blue-600/40 to-blue-600/10 text-white border-l-2 border-neon-blue shadow-[0_0_10px_rgba(0,210,255,0.2)]' : 'text-white/80 hover:bg-white/10 hover:text-white border-l-2 border-transparent'} ${complaintSidebarCollapsed ? 'justify-center px-0' : ''}`} title={complaintSidebarCollapsed ? item.label : ''}> <div className="w-5 h-5 flex items-center justify-center shrink-0 relative">{item.icon}{complaintSidebarCollapsed && item.count && ( <div className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 flex items-center justify-center text-[8px] rounded-full text-white ${item.badgeColor || 'bg-red-500'} ring-1 ring-[#0c2242]`}>{item.count > 9 ? '9+' : item.count}</div> )}</div> {!complaintSidebarCollapsed && ( <span className="text-sm whitespace-nowrap truncate">{item.label}</span> )} </div> ))}
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+                {visibleTabs.map(tabId => (
+                    <div key={tabId} className={`flex-1 flex flex-col h-full ${activeTab === tabId ? '' : 'hidden'}`}>
+                        {tabId === 'complaint' && (
+                            <>
+                                {getUIState('complaint', activeComplaintTabId || '').isSettingsOpen && (
+                                    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                                        <div className="bg-[#0b1730] border border-blue-500/30 p-6 w-[400px] shadow-[0_0_30px_rgba(0,210,255,0.2)]">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                    <SettingsIcon className="w-5 h-5 text-neon-blue" />
+                                                    系统设置
+                                                </h3>
+                                                <button onClick={() => setUIState({ isSettingsOpen: false })} className="text-gray-400 hover:text-white">
+                                                    <XIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-xs text-blue-300 mb-1">Gemini API Key</label>
+                                                    <StyledInput 
+                                                        type="password"
+                                                        placeholder="请输入您的 API Key"
+                                                        className="w-full"
+                                                        defaultValue={apiKey}
+                                                        onBlur={(e) => handleSaveApiKey(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="p-3 bg-blue-900/20 border border-blue-500/20 rounded text-[10px] text-blue-300 leading-relaxed">
+                                                    提示：API Key 将安全地存储在您的浏览器本地存储中，仅用于与 Gemini 服务通信。
+                                                </div>
+                                            </div>
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        {tabId !== 'complaint' && tabId !== 'ai-chat' && tabId !== 'workbench' && (
+                            <>
+                                {getUIState(tabId).isSettingsOpen && (
+                                    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                                        <div className="bg-[#0b1730] border border-blue-500/30 p-6 w-[400px] shadow-[0_0_30px_rgba(0,210,255,0.2)]">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                    <SettingsIcon className="w-5 h-5 text-neon-blue" />
+                                                    系统设置
+                                                </h3>
+                                                <button onClick={() => setUIState({ isSettingsOpen: false }, tabId)} className="text-gray-400 hover:text-white">
+                                                    <XIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-xs text-blue-300 mb-1">Gemini API Key</label>
+                                                    <StyledInput 
+                                                        type="password"
+                                                        placeholder="请输入您的 API Key"
+                                                        className="w-full"
+                                                        defaultValue={apiKey}
+                                                        onBlur={(e) => handleSaveApiKey(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="p-3 bg-blue-900/20 border border-blue-500/20 rounded text-[10px] text-blue-300 leading-relaxed">
+                                                    提示：API Key 将安全地存储在您的浏览器本地存储中，仅用于与 Gemini 服务通信。
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <ExportModal 
+                                    isOpen={getUIState(tabId).isExportModalOpen} 
+                                    onClose={() => setUIState({ isExportModalOpen: false }, tabId)} 
+                                    onConfirm={handleExportConfirm} 
+                                    defaultFilename={getUIState(tabId).exportFilename} 
+                                />
+                            </>
+                        )}
+                        {tabId === 'ai-chat' ? (
+                            <AIChatPanel messages={activeSessionMessages} sessions={sessions} activeSessionId={activeSessionId} onNewSession={handleNewSession} onSelectSession={handleSelectSession} onSendMessage={handleSendMessage} isLoading={isChatLoading} mode="tab" onRenameSession={handleRenameSession} onDeleteSession={handleDeleteSession} />
+                        ) : tabId === 'workbench' ? (
+                            <WorkbenchView />
+                        ) : tabId === 'group-order' ? (
+                            <GroupOrderView 
+                                viewState={groupOrderViewState}
+                                setViewState={setGroupOrderViewState}
+                                activeSubTab={groupOrderViewTab}
+                                onSubTabChange={setGroupOrderViewTab}
+                            />
+                        ) : tabId === 'important-business' ? (
+                            <ImportantBusinessView />
+                        ) : tabId === 'complaint' ? (
+                            <div className="flex flex-1 overflow-hidden h-full">
+                                <div className={`${complaintSidebarCollapsed ? 'w-[53px]' : 'w-48'} bg-transparent border border-blue-500/30 mr-2 transition-all duration-500 ease-in-out flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.3)]`}>
+                                    <div className={`h-[35px] flex items-center ${complaintSidebarCollapsed ? 'justify-center' : 'justify-between px-3'} border-b border-blue-500/20 bg-transparent shrink-0`}> 
+                                        {!complaintSidebarCollapsed && <span className="text-blue-100 font-bold tracking-wider text-[12px] whitespace-nowrap">投诉支撑</span>}
+                                        <button onClick={() => setComplaintSidebarCollapsed(!complaintSidebarCollapsed)} className="text-blue-300 hover:text-white transition-colors flex items-center justify-center"> 
+                                            <div className="w-5 h-5 flex items-center justify-center">{complaintSidebarCollapsed ? <SidebarOpenIcon /> : <SidebarCloseIcon />}</div> 
+                                        </button> 
+                                    </div>
+                                    <div className="flex-1 py-2 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                                        {SIDEBAR_GROUPS.map((group) => (
+                                            <div key={group.id} className="flex flex-col gap-1">
+                                                {!complaintSidebarCollapsed && ( <div className="px-3 py-1 text-xs text-blue-400/70 font-bold uppercase tracking-wider border-b border-blue-500/10 mb-1 mx-1">{group.title}</div> )}
+                                                {group.items.map(item => ( <div key={item.id} onClick={() => handleSidebarClick(item.id)} className={`relative flex items-center gap-3 px-3 py-2 cursor-pointer transition-all mx-1 rounded-sm ${activeSidebarFolder === item.id ? 'bg-gradient-to-r from-blue-600/40 to-blue-600/10 text-white border-l-2 border-neon-blue shadow-[0_0_10px_rgba(0,210,255,0.2)]' : 'text-white/80 hover:bg-white/10 hover:text-white border-l-2 border-transparent'} ${complaintSidebarCollapsed ? 'justify-center px-0' : ''}`} title={complaintSidebarCollapsed ? item.label : ''}> <div className="w-5 h-5 flex items-center justify-center shrink-0 relative">{item.icon}{complaintSidebarCollapsed && item.count && ( <div className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 flex items-center justify-center text-[8px] rounded-full text-white ${item.badgeColor || 'bg-red-500'} ring-1 ring-[#0c2242]`}>{item.count > 9 ? '9+' : item.count}</div> )}</div> {!complaintSidebarCollapsed && ( <span className="text-sm whitespace-nowrap truncate">{item.label}</span> )} </div> ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
+                                    {complaintTabs.length > 0 && (
+                                        <div className="flex items-end gap-[6px] pl-0 pr-4 h-[35px] mt-px border-b border-blue-500/20 bg-[#0c1a35]/20 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                                            {complaintTabs.map((tab) => {
+                                                const isActive = activeComplaintTabId === tab.id;
+                                                return (
+                                                    <div 
+                                                        key={tab.id} 
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+                                                        }}
+                                                        onClick={() => { setActiveComplaintTabId(tab.id); if (tab.type === 'stats') setActiveSidebarFolder('stats'); else if (tab.type === 'config') setActiveSidebarFolder('capabilities'); else if (tab.type === 'personnel') setActiveSidebarFolder('personnel'); else if (tab.type === 'create') setActiveSidebarFolder('new'); else if (tab.type !== 'detail') setActiveSidebarFolder(tab.id); else setActiveSidebarFolder(''); }} 
+                                                        className={`
+                                                            relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[90px] px-3 overflow-hidden group
+                                                            ${isActive 
+                                                                ? 'z-10' 
+                                                                : 'border-t border-x border-blue-500/30 border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-[#094F8B]/[0.05]'}
+                                                        `}
+                                                    >
+                                                         {isActive && (
+                                                            <>
+                                                                <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
+                                                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
+                                                                <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                                                <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                                            </>
+                                                        )}
+                                                        <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
+                                                        <button onClick={(e) => handleCloseComplaintTab(e, tab.id)} className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}> <XIcon /> </button> 
+                                                    </div> 
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {renderComplaintContent()}
                                 </div>
                             </div>
+                        ) : (
+                            renderStandardView()
                         )}
-                        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                            {activeTab === 'complaint' && complaintTabs.length > 0 && (
-                                <div className="flex items-end gap-[6px] pl-0 pr-4 h-[35px] mt-px border-b border-blue-500/20 bg-[#0c1a35]/20 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                                    {complaintTabs.map((tab) => {
-                                        const isActive = activeComplaintTabId === tab.id;
-                                        return (
-                                            <div 
-                                                key={tab.id} 
-                                                onContextMenu={(e) => {
-                                                    e.preventDefault();
-                                                    setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
-                                                }}
-                                                onClick={() => { setActiveComplaintTabId(tab.id); if (tab.type === 'stats') setActiveSidebarFolder('stats'); else if (tab.type === 'config') setActiveSidebarFolder('capabilities'); else if (tab.type === 'personnel') setActiveSidebarFolder('personnel'); else if (tab.type === 'create') setActiveSidebarFolder('new'); else if (tab.type !== 'detail') setActiveSidebarFolder(tab.id); else setActiveSidebarFolder(''); }} 
-                                                className={`
-                                                    relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[90px] px-3 overflow-hidden group
-                                                    ${isActive 
-                                                        ? 'z-10' 
-                                                        : 'border-t border-x border-blue-500/30 border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-[#094F8B]/[0.05]'}
-                                                `}
-                                            >
-                                                 {isActive && (
-                                                    <>
-                                                        <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
-                                                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
-                                                        <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                                                        <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
-                                                    </>
-                                                )}
-                                                <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
-                                                <button onClick={(e) => handleCloseComplaintTab(e, tab.id)} className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}> <XIcon /> </button> 
-                                            </div> 
-                                        );
-                                    })}
-                                </div>
-                            )}
-                            {activeTab === 'complaint' && complaintTabs.length === 0 ? ( 
-                                <div className="flex-1 flex flex-col items-center justify-center bg-transparent text-blue-300/50 border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)]"> 
-                                    <div className="text-5xl mb-4">👈</div> 
-                                    <div className="text-lg">请点击左侧菜单查看工单列表</div> 
-                                </div> 
-                            ) : ( 
-                                <> {activeTab === 'complaint' ? ( renderComplaintContent() ) : ( renderStandardView() )} </> 
-                            )}
-                        </div>
                     </div>
+                ))}
+                {visibleTabs.length === 0 && (
+                    <div className="flex-1 flex flex-col items-center justify-center text-blue-300/50"> <div className="text-6xl mb-4">🗂️</div> <div className="text-xl">所有页签已关闭</div> <button onClick={handleRestoreTabs} className="mt-4 px-4 py-2 bg-blue-600/30 border border-blue-500 hover:bg-blue-600/50 text-white rounded">重新打开</button> </div>
                 )}
             </div>
-            <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} onConfirm={handleExportConfirm} defaultFilename={exportFilename} />
-            <ComplaintModal isOpen={isComplaintModalOpen} onClose={() => setIsComplaintModalOpen(false)} onConfirm={handleComplaintSubmit} initialData={selectedComplaint} stage={complaintModalStage} />
             {isChatPanelOpen && activeTab !== 'ai-chat' && ( <div className="fixed right-0 top-[60px] bottom-0 w-[520px] z-[100] animate-[slideInRight_0.3s_ease-out]"> <AIChatPanel messages={activeSessionMessages} sessions={sessions} activeSessionId={activeSessionId} onNewSession={handleNewSession} onSelectSession={handleSelectSession} onSendMessage={handleSendMessage} isLoading={isChatLoading} mode="sidebar" onExpand={handleExpandChat} onClose={() => setIsChatPanelOpen(false)} onRenameSession={handleRenameSession} onDeleteSession={handleDeleteSession} /> </div> )}
             {!isChatPanelOpen && activeTab !== 'ai-chat' && ( <button onClick={() => setIsChatPanelOpen(true)} className="fixed right-6 bottom-10 z-50 w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full shadow-[0_0_20px_rgba(0,210,255,0.6)] flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-pulse" title="打开智能助手"> <BotIcon /> </button> )}
             
-            {isSettingsOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-[#0b1730] border border-blue-500/30 p-6 w-[400px] shadow-[0_0_30px_rgba(0,210,255,0.2)]">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <SettingsIcon className="w-5 h-5 text-neon-blue" />
-                                系统设置
-                            </h3>
-                            <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white">
-                                <XIcon className="w-5 h-5" />
-                            </button>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs text-blue-300 mb-1">Gemini API Key</label>
-                                <StyledInput 
-                                    type="password"
-                                    placeholder="请输入您的 API Key"
-                                    className="w-full"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                />
-                                <p className="text-[10px] text-blue-400/60 mt-1">
-                                    Key 将保存在浏览器本地存储中，不会上传到服务器。
-                                </p>
-                            </div>
-                            
-                            <div className="pt-4 flex justify-end gap-3">
-                                <StyledButton variant="secondary" onClick={() => setIsSettingsOpen(false)}>取消</StyledButton>
-                                <StyledButton variant="primary" onClick={() => handleSaveApiKey(apiKey)}>保存配置</StyledButton>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {dropdownState.isOpen && (
                 <div 
                     className="fixed z-[60] bg-[#0A3458]/30 border border-blue-500/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md py-2 w-36 rounded-sm animate-[fadeIn_0.1s_ease-out]"
@@ -1318,6 +1458,12 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                         onClick={() => { handleOpenTab('group-order'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
                     >
                         团单管理
+                    </div>
+                    <div 
+                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                        onClick={() => { handleOpenTab('important-business'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
+                    >
+                        重要业务管理
                     </div>
                 </div>
             )}

@@ -311,7 +311,9 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
       cityA: record.assigneeCity || '',
       cityZ: '',
       broadbandAccount: '',
-      businessCategory: record.businessCategory
+      businessCategory: record.businessCategory,
+      aAssuranceLevel: (record as any).aAssuranceLevel || '',
+      zAssuranceLevel: (record as any).zAssuranceLevel || ''
   });
 
   const [processResultType, setProcessResultType] = useState<'reply' | 'reassign'>('reply');
@@ -399,7 +401,9 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
         cityA: sub.cityA || '',
         cityZ: sub.cityZ || '',
         broadbandAccount: sub.broadbandAccount || '',
-        businessCategory: sub.businessCategory || ''
+        businessCategory: sub.businessCategory || '',
+        aAssuranceLevel: sub.aAssuranceLevel || '',
+        zAssuranceLevel: sub.zAssuranceLevel || ''
     });
     setIsServiceModalOpen(false);
   };
@@ -484,6 +488,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                     <InfoItem label="宽带账号" value={businessInfo.broadbandAccount || '无'} />
                                     <InfoItem label="客户名称" value={businessInfo.customerName} />
                                     <InfoItem label="客户编号" value={businessInfo.customerCode} />
+                                    <InfoItem label="A端保障等级" value={(businessInfo as any).aAssuranceLevel || '普通'} />
                                     <InfoItem label="业务地址" value={businessInfo.serviceAddressA} span={2} />
                                 </>
                             ) : (
@@ -493,6 +498,10 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                     <InfoItem label="电路编号" value={businessInfo.circuitCode} />
                                     <InfoItem label="客户名称" value={businessInfo.customerName} />
                                     <InfoItem label="客户编号" value={businessInfo.customerCode} />
+                                    <InfoItem label="A端保障等级" value={(businessInfo as any).aAssuranceLevel || '普通'} />
+                                    {businessInfo.productType === '数据专线' && (
+                                        <InfoItem label="Z端保障等级" value={(businessInfo as any).zAssuranceLevel || '普通'} />
+                                    )}
                                     {businessInfo.productType === '数据专线' ? (
                                         <>
                                             <InfoItem label="A端地址" value={businessInfo.serviceAddressA} span={3} />
@@ -850,6 +859,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
             isOpen={isServiceModalOpen}
             onClose={() => setIsServiceModalOpen(false)}
             onConfirm={handleServiceUpdate}
+            showAssuranceLevel={true}
         />
     </div>
   );

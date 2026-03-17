@@ -26,7 +26,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className={`flex items-center justify-end space-x-4 text-xs text-blue-200 ${className || 'py-4 px-2'}`}>
+    <div className={`flex items-center space-x-4 text-xs text-blue-200 ${className?.includes('justify-') ? '' : 'justify-end'} ${className || 'py-4 px-2'}`}>
       <div className="flex items-center space-x-2">
         <span>共 {totalItems} 条</span>
       </div>

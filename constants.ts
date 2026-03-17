@@ -63,7 +63,7 @@
  * Language: All UI text must be in Simplified Chinese.
  */
 
-import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord, GroupOrderRecord } from './types';
+import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord, GroupOrderRecord, ImportantBusinessRecord } from './types';
 
 // Helper to format numbers with commas
 const formatNumber = (num: number): string => {
@@ -626,6 +626,7 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
 
         const isEnterpriseBroadband = serviceType === '企宽';
         const broadbandAccount = isEnterpriseBroadband ? `TEST_KD_${100000 + i}` : '';
+        const commonAssuranceLevel = assuranceLevels[Math.floor(Math.random() * assuranceLevels.length)];
 
         const record: SubscriptionRecord = {
             id: `sub-${i}`,
@@ -634,7 +635,9 @@ export const generateSubscriptionMockData = (count: number): SubscriptionRecord[
             serviceLevel,
             circuitCode,
             bandwidth,
-            assuranceLevel: assuranceLevels[Math.floor(Math.random() * assuranceLevels.length)],
+            assuranceLevel: commonAssuranceLevel,
+            aAssuranceLevel: commonAssuranceLevel, // Defaulting to same for mock
+            zAssuranceLevel: assuranceLevels[Math.floor(Math.random() * assuranceLevels.length)], // Random for Z
             customerCode,
             customerName,
             serviceStatus: statuses[Math.floor(Math.random() * statuses.length)],
@@ -771,6 +774,8 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
             productType,
             businessCategory,
             ticketSource,
+            aAssuranceLevel: ["AAA", "AA", "A", "普通"][Math.floor(Math.random() * 4)],
+            zAssuranceLevel: ["AAA", "AA", "A", "普通"][Math.floor(Math.random() * 4)],
         };
 
         // Always generate faultType to simulate initial report info
@@ -790,6 +795,46 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
     }
     return data;
 }
+
+// Generate Mock Data for Important Business Management
+export const generateImportantBusinessMockData = (count: number): ImportantBusinessRecord[] => {
+    const data: ImportantBusinessRecord[] = [];
+    const businessTypes = ["数据专线", "互联网专线", "MPLS-VPN专线", "语音专线"];
+    const assuranceLevels = ["AAA", "AA", "A", "普通"];
+    const customers = ["腾讯科技", "阿里巴巴", "字节跳动", "工商银行", "招商银行", "国家电网", "蒙牛集团", "伊利集团"];
+
+    for (let i = 0; i < count; i++) {
+        const { productInstance } = generateCommonFields(i, 'Biz');
+        const businessType = businessTypes[i % businessTypes.length];
+        const customerName = customers[i % customers.length];
+        const customerCode = `CUST-${(100000 + i).toString()}`;
+        
+        const cityAObj = INNER_MONGOLIA_CITIES[i % INNER_MONGOLIA_CITIES.length];
+        const cityA = cityAObj.name;
+        const { district: districtA, address: addressA } = getRandomAddress(cityA);
+        
+        const cityZObj = INNER_MONGOLIA_CITIES[(i + 2) % INNER_MONGOLIA_CITIES.length];
+        const cityZ = cityZObj.name;
+        const { district: districtZ, address: addressZ } = getRandomAddress(cityZ);
+
+        data.push({
+            id: `ib-${i}`,
+            customerName,
+            customerCode,
+            businessType,
+            productInstance,
+            aAssuranceLevel: assuranceLevels[Math.floor(Math.random() * assuranceLevels.length)],
+            aCity: cityA,
+            aDistrict: districtA,
+            aAddress: addressA,
+            zAssuranceLevel: assuranceLevels[Math.floor(Math.random() * assuranceLevels.length)],
+            zCity: cityZ,
+            zDistrict: districtZ,
+            zAddress: addressZ,
+        });
+    }
+    return data;
+};
 
 // Generate Mock Data for Group Orders (Figure 1 in request)
 export const generateGroupOrderData = (count: number): GroupOrderRecord[] => {

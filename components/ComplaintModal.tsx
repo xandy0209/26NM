@@ -53,6 +53,8 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({ isOpen, onClose,
     dispatchObjectZ: '', // 下派对象 Z
     teamA: '',           // 下派班组 A
     teamZ: '',           // 下派班组 Z
+    aAssuranceLevel: initialData?.aAssuranceLevel || '',
+    zAssuranceLevel: initialData?.zAssuranceLevel || '',
 
     // T1
     faultType: initialData?.faultType || '',
@@ -198,7 +200,9 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({ isOpen, onClose,
         cityZ: isDataLine ? record.cityZ : '',
         // Reset dispatch toggles based on line type
         dispatchA: true,
-        dispatchZ: false
+        dispatchZ: false,
+        aAssuranceLevel: record.aAssuranceLevel || '',
+        zAssuranceLevel: record.zAssuranceLevel || ''
     }));
     setIsServiceModalOpen(false);
   };
@@ -252,6 +256,14 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({ isOpen, onClose,
                         <FormRow label="客户名称">
                             <StyledInput className="w-full" value={formData.customerName} disabled />
                         </FormRow>
+                        <FormRow label="A端保障等级">
+                            <StyledInput className="w-full" value={(formData as any).aAssuranceLevel || '普通'} disabled />
+                        </FormRow>
+                        {formData.businessType === '数据专线' && (
+                            <FormRow label="Z端保障等级">
+                                <StyledInput className="w-full" value={(formData as any).zAssuranceLevel || '普通'} disabled />
+                            </FormRow>
+                        )}
                         <FormRow label="投诉内容">
                             <StyledInput className="w-full" value={formData.complaintContent} disabled />
                         </FormRow>
@@ -352,6 +364,7 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({ isOpen, onClose,
           isOpen={isServiceModalOpen}
           onClose={() => setIsServiceModalOpen(false)}
           onConfirm={handleServiceSelect}
+          showAssuranceLevel={true}
       />
     </div>
     </>

@@ -160,6 +160,8 @@ export interface SubscriptionRecord {
   circuitCode: string;      // 电路代号
   bandwidth: string;        // 带宽
   assuranceLevel: string;   // 业务保障等级
+  aAssuranceLevel?: string; // A端保障等级
+  zAssuranceLevel?: string; // Z端保障等级
   customerCode: string;     // 客户编号
   customerName: string;     // 客户名称
   serviceStatus: string;    // 业务状态
@@ -248,6 +250,8 @@ export interface ComplaintRecord {
   productType: string;            // 产品类型 (for stats)
   businessCategory: string;       // 业务分类
   ticketSource?: string;          // 工单来源
+  aAssuranceLevel?: string;       // A端保障等级
+  zAssuranceLevel?: string;       // Z端保障等级
 }
 
 export interface GroupOrderRecord {
@@ -272,6 +276,22 @@ export interface GroupOrderRecord {
   county?: string; // 旗县
 }
 
+export interface ImportantBusinessRecord {
+  id: string;
+  customerName: string;      // 客户名称
+  customerCode: string;      // 客户编号
+  businessType: string;      // 业务类型
+  productInstance: string;   // 产品实例
+  aAssuranceLevel: string;   // A端保障等级
+  aCity: string;             // A端地市
+  aDistrict: string;         // A端区县
+  aAddress: string;          // A端地址
+  zAssuranceLevel: string;   // Z端保障等级
+  zCity: string;             // Z端地市
+  zDistrict: string;         // Z端区县
+  zAddress: string;          // Z端地址
+}
+
 export interface FilterState {
   productInstance: string;
   circuitCode: string;
@@ -289,6 +309,7 @@ export interface FilterState {
   faultType?: string;
   businessCategory?: string;
   productType?: string;
+  assuranceLevel?: string;
 }
 
 export interface ChatMessage {

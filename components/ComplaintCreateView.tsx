@@ -73,6 +73,8 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
     dispatchObjectZ: '', 
     teamA: '',           
     teamZ: '',           
+    aAssuranceLevel: '',
+    zAssuranceLevel: '',
   });
 
   const [attachments, setAttachments] = useState<{ id: string, name: string, size: string }[]>([]);
@@ -135,7 +137,9 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
         dispatchObjectA: '',
         teamA: '',
         dispatchObjectZ: '',
-        teamZ: ''
+        teamZ: '',
+        aAssuranceLevel: record.aAssuranceLevel || '',
+        zAssuranceLevel: record.zAssuranceLevel || ''
     }));
     setIsServiceModalOpen(false);
   };
@@ -287,6 +291,14 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
                     <FormRow label="客户编号">
                         <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.customerCode} readOnly disabled placeholder="自动回填" />
                     </FormRow>
+                    <FormRow label="A端保障等级">
+                        <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={(formData as any).aAssuranceLevel} readOnly disabled placeholder="自动回填" />
+                    </FormRow>
+                    {formData.businessType === '数据专线' && (
+                        <FormRow label="Z端保障等级">
+                            <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={(formData as any).zAssuranceLevel} readOnly disabled placeholder="自动回填" />
+                        </FormRow>
+                    )}
                     <FormRow label="业务地址">
                         <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.serviceAddressA} readOnly disabled placeholder="自动回填" />
                     </FormRow>
@@ -540,6 +552,7 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
             isOpen={isServiceModalOpen}
             onClose={() => setIsServiceModalOpen(false)}
             onConfirm={handleServiceSelect}
+            showAssuranceLevel={true}
         />
     </div>
   );
