@@ -1300,8 +1300,14 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                                         placeholder="请输入您的 API Key"
                                                         className="w-full"
                                                         defaultValue={apiKey}
-                                                        onBlur={(e) => handleSaveApiKey(e.target.value)}
+                                                        onChange={(e) => setApiKey(e.target.value)}
                                                     />
+                                                    <StyledButton 
+                                                        className="w-full mt-2" 
+                                                        onClick={() => { handleSaveApiKey(apiKey); alert('API Key 已保存'); }}
+                                                    >
+                                                        提交
+                                                    </StyledButton>
                                                 </div>
                                                 <div className="p-3 bg-blue-900/20 border border-blue-500/20 rounded text-[10px] text-blue-300 leading-relaxed">
                                                     提示：API Key 将安全地存储在您的浏览器本地存储中，仅用于与 Gemini 服务通信。
@@ -1335,8 +1341,14 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                                         placeholder="请输入您的 API Key"
                                                         className="w-full"
                                                         defaultValue={apiKey}
-                                                        onBlur={(e) => handleSaveApiKey(e.target.value)}
+                                                        onChange={(e) => setApiKey(e.target.value)}
                                                     />
+                                                    <StyledButton 
+                                                        className="w-full mt-2" 
+                                                        onClick={() => { handleSaveApiKey(apiKey); alert('API Key 已保存'); }}
+                                                    >
+                                                        提交
+                                                    </StyledButton>
                                                 </div>
                                                 <div className="p-3 bg-blue-900/20 border border-blue-500/20 rounded text-[10px] text-blue-300 leading-relaxed">
                                                     提示：API Key 将安全地存储在您的浏览器本地存储中，仅用于与 Gemini 服务通信。

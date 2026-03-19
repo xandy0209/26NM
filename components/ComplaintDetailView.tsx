@@ -44,9 +44,9 @@ const FormRow = ({ label, required, children, align = 'center' }: { label: strin
     </div>
 );
 
-const FlowChart = ({ stage }: { stage: string }) => {
+const FlowChart = ({ stage, isQCRejected, ticketNo }: { stage: string, isQCRejected?: boolean, ticketNo: string }) => {
     const steps = [
-        { id: 'T0', label: '工单派发', aliases: ['待受理', 'T0'] },
+        { id: 'T0', label: '工单派发', aliases: ['待受理', 'T0', '待派发'] },
         { id: 'T1', label: '工单处理', aliases: ['处理中', 'T1'] },
         { id: 'T2', label: '工单质检', aliases: ['待质检', 'T2'] },
         { id: 'Closed', label: '归档', aliases: ['已归档', 'Closed'] }
@@ -54,7 +54,45 @@ const FlowChart = ({ stage }: { stage: string }) => {
     
     const activeIndex = steps.findIndex(s => s.aliases.includes(stage));
     const isClosed = stage === 'Closed' || stage === '已归档';
+    
+    // Determine which stages have been completed
+    const completedStages = new Set<string>();
+    if (stage === '已归档' || stage === 'Closed') {
+        steps.forEach(s => completedStages.add(s.id));
+    } else if (stage === '待质检' || stage === 'T2') {
+        completedStages.add('T0');
+        completedStages.add('T1');
+    } else if (stage === '处理中' || stage === 'T1') {
+        completedStages.add('T0');
+    }
+    // If rejected, the previous stages are still considered "completed" (passed through)
+    if (isQCRejected) {
+        completedStages.add('T0');
+        completedStages.add('T1');
+        completedStages.add('T2');
+    }
+
     const currentIdx = isClosed ? 4 : activeIndex === -1 ? 0 : activeIndex;
+
+    // Use localStorage to persist rejection status
+    const [rejectionStatus, setRejectionStatus] = useState(() => {
+        const saved = localStorage.getItem(`rejectionHistory_${ticketNo}`);
+        return saved ? JSON.parse(saved) : { isRejectedToT0: false, isRejectedFromQC: false };
+    });
+
+    useEffect(() => {
+        if (isQCRejected || stage === '待派发') {
+            const newStatus = {
+                isRejectedToT0: rejectionStatus.isRejectedToT0 || stage === '待派发',
+                isRejectedFromQC: rejectionStatus.isRejectedFromQC || isQCRejected
+            };
+            setRejectionStatus(newStatus);
+            localStorage.setItem(`rejectionHistory_${ticketNo}`, JSON.stringify(newStatus));
+        }
+    }, [isQCRejected, stage, ticketNo]);
+
+    const isRejectedToT0 = rejectionStatus.isRejectedToT0;
+    const isRejectedFromQC = rejectionStatus.isRejectedFromQC;
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(0.9); 
@@ -132,6 +170,9 @@ const FlowChart = ({ stage }: { stage: string }) => {
                             <marker id="arrow-reject" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
                                 <path d="M0,0 L0,6 L7,3 z" fill="#94a3b8" />
                             </marker>
+                            <marker id="arrow-reject-active" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                                <path d="M0,0 L0,6 L7,3 z" fill="#ef4444" />
+                            </marker>
                         </defs>
 
                         {steps.map((_, idx) => {
@@ -156,29 +197,29 @@ const FlowChart = ({ stage }: { stage: string }) => {
                         <path 
                             d="M 625 50 L 625 20 L 385 20 L 385 50" 
                             fill="none" 
-                            stroke="#94a3b8" 
+                            stroke={isRejectedFromQC ? "#ef4444" : "#94a3b8"} 
                             strokeWidth="1.5" 
-                            markerEnd="url(#arrow-reject)"
+                            markerEnd={`url(#arrow-reject${isRejectedFromQC ? '-active' : ''})`}
                             vectorEffect="non-scaling-stroke"
                         />
                         <rect x="480" y="12" width="40" height="16" fill="#0b1730" fillOpacity="0.9" />
-                        <text x="500" y="24" fill="#94a3b8" fontSize="11" textAnchor="middle">驳回</text>
+                        <text x="500" y="24" fill={isRejectedFromQC ? "#ef4444" : "#94a3b8"} fontSize="11" textAnchor="middle">驳回</text>
 
                         <path 
                             d="M 365 50 L 365 20 L 125 20 L 125 50" 
                             fill="none" 
-                            stroke="#94a3b8" 
+                            stroke={isRejectedToT0 ? "#ef4444" : "#94a3b8"} 
                             strokeWidth="1.5" 
-                            markerEnd="url(#arrow-reject)"
+                            markerEnd={`url(#arrow-reject${isRejectedToT0 ? '-active' : ''})`}
                             vectorEffect="non-scaling-stroke"
                         />
                         <rect x="230" y="12" width="40" height="16" fill="#0b1730" fillOpacity="0.9" />
-                        <text x="250" y="24" fill="#94a3b8" fontSize="11" textAnchor="middle">驳回</text>
+                        <text x="250" y="24" fill={isRejectedToT0 ? "#ef4444" : "#94a3b8"} fontSize="11" textAnchor="middle">驳回</text>
                     </svg>
 
                     {steps.map((step, idx) => {
                         const isActive = idx === currentIdx;
-                        const isCompleted = idx < currentIdx;
+                        const isCompleted = completedStages.has(step.id) || idx < currentIdx;
                         
                         let bgClass = "bg-[#0b1730] border-gray-700 text-gray-500"; 
                         let glowClass = "";
@@ -275,24 +316,16 @@ const generateLogs = (record: ComplaintRecord) => {
         });
     }
 
-    const opPriority: Record<string, number> = {
-        '系统归档': 5,
-        '通过': 4,
-        '回单': 3,
-        '受理': 2,
-        '派发': 1
-    };
-
     return logs.sort((a, b) => {
-        const pA = opPriority[a.opName] || 0;
-        const pB = opPriority[b.opName] || 0;
-        return pB - pA;
+        return new Date(b.time.replace(' ', 'T')).getTime() - new Date(a.time.replace(' ', 'T')).getTime();
     });
 };
 
 export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, triggerTimestamp, onTabChange }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'flow' | 'process'>('basic');
   const [currentStage, setCurrentStage] = useState(record.stage);
+  const [logs, setLogs] = useState(() => generateLogs(record));
+  const [isQCRejected, setIsQCRejected] = useState(false);
 
   useEffect(() => {
     if (targetTab) {
@@ -316,7 +349,8 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
       zAssuranceLevel: (record as any).zAssuranceLevel || ''
   });
 
-  const [processResultType, setProcessResultType] = useState<'reply' | 'reassign'>('reply');
+  const [processResultType, setProcessResultType] = useState<'reply' | 'reassign' | 'reject'>('reply');
+  const [processRejectReason, setProcessRejectReason] = useState('');
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
 
   const [replyData, setReplyData] = useState({
@@ -343,6 +377,8 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
 
   useEffect(() => {
       setCurrentStage(record.stage);
+      setLogs(generateLogs(record));
+      setIsQCRejected(false);
       setProcessResultType('reply');
       setReplyData({ faultResult: '', faultType: '', faultCause: '' });
       setQcData({ qcResult: '', isSatisfied: '', qcRemarks: '', rejectReason: '' });
@@ -373,19 +409,84 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
 
   const handleAccept = () => {
       setCurrentStage('处理中');
+      setIsQCRejected(false);
+      setLogs(prev => [
+          {
+              time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+              opName: '受理',
+              stage: '工单处理',
+              operator: `${record.assignee.split('-')[0]}张工 (13800138000)`,
+              info: '已接单，准备前往现场排查'
+          },
+          ...prev
+      ]);
   };
 
   const handleReplySubmit = () => {
       setCurrentStage('待质检');
+      setIsQCRejected(false);
+      setLogs(prev => [
+          {
+              time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+              opName: '回单',
+              stage: '工单处理',
+              operator: `${record.assignee.split('-')[0]}张工 (13800138000)`,
+              info: `故障已修复。原因：${replyData.faultType || '光缆故障'}。结果：${replyData.faultResult || '已修复'}`
+          },
+          ...prev
+      ]);
+  };
+
+  const handleRejectSubmit = () => {
+      setCurrentStage('待派发');
+      setIsQCRejected(false);
+      setLogs(prev => [
+          {
+              time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+              opName: '驳回',
+              stage: '工单处理',
+              operator: `${record.assignee.split('-')[0]}张工 (13800138000)`,
+              info: `工单已驳回。原因：${processRejectReason || '无'}`
+          },
+          ...prev
+      ]);
   };
 
   const handleQCSubmit = () => {
       if (qcData.qcResult === '通过') {
           setCurrentStage('已归档');
+          setLogs(prev => [
+              {
+                  time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                  opName: '系统归档',
+                  stage: '归档',
+                  operator: '系统自动',
+                  info: '流程结束'
+              },
+              {
+                  time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                  opName: '通过',
+                  stage: '工单质检',
+                  operator: '质检员李工 (13900139000)',
+                  info: '回访客户满意，工单归档'
+              },
+              ...prev
+          ]);
           setActiveTab('basic');
           if (onTabChange) onTabChange('basic');
       } else if (qcData.qcResult === '驳回') {
           setCurrentStage('处理中');
+          setIsQCRejected(true);
+          setLogs(prev => [
+              {
+                  time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                  opName: '驳回',
+                  stage: '工单质检',
+                  operator: '质检员李工 (13900139000)',
+                  info: `质检驳回，重新处理。`
+              },
+              ...prev
+          ]);
       }
   };
 
@@ -422,7 +523,6 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
   }
 
   const displayRecord = { ...record, stage: currentStage as any };
-  const logs = generateLogs(displayRecord);
   const currentDisplayTab = (activeTab === 'process' && !canShowProcess) ? 'basic' : activeTab;
 
   const handleTabClick = (tabId: 'basic' | 'flow' | 'process') => {
@@ -543,7 +643,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                 <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
                     <div className="bg-blue-900/10 p-4 border border-blue-500/20 rounded-sm overflow-hidden">
                         <h4 className="text-xs font-bold text-blue-300 mb-2 uppercase">流程图</h4>
-                        <FlowChart stage={displayRecord.stage} />
+                        <FlowChart stage={displayRecord.stage} isQCRejected={isQCRejected} ticketNo={displayRecord.ticketNo} />
                     </div>
                     <div className="bg-blue-900/10 p-0 border border-blue-500/20 rounded-sm overflow-hidden">
                         <div className="px-4 py-2 border-b border-blue-500/20 bg-[#0c2242]/50">
@@ -593,7 +693,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                 工单受理
                             </h3>
                             <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                                <div className="text-blue-200 text-lg">当前工单处于 <span className="text-yellow-400 font-bold">待受理</span> 状态</div>
+                                <div className="text-blue-200 text-[14px] text-center">该工单目前处于<span className="text-yellow-400 font-bold">待受理</span>状态，请核实投诉内容后点击下方按钮进行受理。</div>
                                 <StyledButton 
                                     variant="primary" 
                                     className="px-8 py-2 h-auto text-base"
@@ -633,6 +733,16 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                                 className="accent-neon-blue w-3.5 h-3.5 cursor-pointer"
                                             />
                                             <span className={`text-sm font-medium ${processResultType === 'reassign' ? 'text-neon-blue font-bold' : 'text-white/60 group-hover:text-white'}`}>转派</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input 
+                                                type="radio" 
+                                                name="processResultType" 
+                                                checked={processResultType === 'reject'} 
+                                                onChange={() => setProcessResultType('reject')}
+                                                className="accent-neon-blue w-3.5 h-3.5 cursor-pointer"
+                                            />
+                                            <span className={`text-sm font-medium ${processResultType === 'reject' ? 'text-neon-blue font-bold' : 'text-white/60 group-hover:text-white'}`}>驳回</span>
                                         </label>
                                     </div>
                                 </FormRow>
@@ -681,7 +791,7 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                         <StyledButton variant="primary" onClick={handleReplySubmit}>提交回单</StyledButton>
                                     </div>
                                 </div>
-                            ) : (
+                            ) : processResultType === 'reassign' ? (
                                 <div className="space-y-4 animate-[fadeIn_0.2s_ease-out] w-full max-w-2xl">
                                     <div className="p-0 space-y-6">
                                         {/* A端下派 */}
@@ -787,11 +897,38 @@ export const ComplaintDetailView: React.FC<Props> = ({ record, targetTab, trigge
                                                     alert('请至少选择一个下派地市');
                                                     return;
                                                 }
+                                                setLogs(prev => [
+                                                    {
+                                                        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                                                        opName: '转派',
+                                                        stage: '工单处理',
+                                                        operator: `${record.assignee.split('-')[0]}张工 (13800138000)`,
+                                                        info: `工单已转派。`
+                                                    },
+                                                    ...prev
+                                                ]);
                                                 alert('工单已成功转派！');
                                             }}
                                         >
                                             确认转派
                                         </StyledButton>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-4 animate-[fadeIn_0.2s_ease-out] w-full max-w-2xl">
+                                    <div className="col-span-2">
+                                        <FormRow label="驳回原因" required align="start">
+                                            <textarea 
+                                                className="w-full bg-[#0f172a]/30 border border-[#0085D0]/50 text-blue-100 text-sm px-3 py-2 focus:outline-none focus:border-neon-blue transition-colors rounded-none h-24 resize-none leading-relaxed"
+                                                value={processRejectReason}
+                                                onChange={(e) => setProcessRejectReason(e.target.value)}
+                                                placeholder="请详细描述驳回原因..."
+                                            ></textarea>
+                                        </FormRow>
+                                    </div>
+                                    <div className="col-span-2 flex justify-end gap-3 mt-2">
+                                        <StyledButton variant="secondary">暂存</StyledButton>
+                                        <StyledButton variant="primary" onClick={handleRejectSubmit}>提交驳回</StyledButton>
                                     </div>
                                 </div>
                             )}
