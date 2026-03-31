@@ -278,6 +278,7 @@ export interface GroupOrderRecord {
 
 export interface ImportantBusinessRecord {
   id: string;
+  importanceLevel?: '重要' | '特别重要'; // 重要等级
   customerName: string;      // 客户名称
   customerCode: string;      // 客户编号
   businessType: string;      // 业务类型
@@ -290,6 +291,50 @@ export interface ImportantBusinessRecord {
   zCity: string;             // Z端地市
   zDistrict: string;         // Z端区县
   zAddress: string;          // Z端地址
+}
+
+export interface TerminalInventoryRecord {
+  id: string;
+  sn: string;               // SN码
+  deviceType: string;       // 设备类型
+  status: string;           // 设备状态
+  vendor: string;           // 厂家
+  inboundTime: string;      // 入库时间
+  outboundTime?: string;    // 出库时间
+  removedTime?: string;     // 拆除时间
+}
+
+export interface FaultRuleRecord {
+  id: string;
+  alarmObject: string;       // 告警对象
+  resourceInterface: string; // 传输资源界面
+  alarmTitle: string;        // 告警标题
+  faultResult: string;       // 识别结果
+  updateTime: string;        // 最后修改时间
+}
+
+export interface FaultEventRecord {
+  id: string;
+  eventNo: string;            // 事件编号
+  groupCustomerCode: string;  // 集团客户编码
+  groupCustomerName: string;  // 集团客户名称
+  productInstance: string;    // 产品实例标识
+  circuitCode: string;        // 电路代号
+  recognitionResult: '业务中断' | '保护降级'; // 识别结果
+  eventStatus: '活动' | '历史'; // 事件状态
+  eventTime: string;          // 事件产生时间
+  faultTime: string;          // 故障产生时间
+  recoveryTime: string;       // 故障恢复时间
+  snapshotUrl: string;        // 事件快照 (URL or base64)
+}
+
+export interface FaultSMSConfigRecord {
+  id: string;
+  productInstance: string;    // 产品实例
+  recipients: { name: string; phone: string }[]; // 短信受理人
+  businessType: string;       // 业务类型
+  customerName: string;       // 客户名称
+  customerCode: string;       // 客户编号
 }
 
 export interface FilterState {

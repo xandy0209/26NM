@@ -44,10 +44,10 @@ export const Pagination: React.FC<PaginationProps> = ({
             {/* Simple pagination logic: Show current, mostly */}
             {/* Updated background to #07596C/80 */}
             <span className="bg-[#07596C]/80 text-white px-2 py-0.5 border border-blue-400 rounded-none">
-                {currentPage}
+                {isNaN(currentPage) ? 1 : currentPage}
             </span>
             <span className="px-1 text-blue-400">/</span>
-            <span className="px-1">{totalPages}</span>
+            <span className="px-1">{isNaN(totalPages) ? 1 : totalPages}</span>
         </div>
 
         <button

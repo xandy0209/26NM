@@ -18,6 +18,10 @@ import { GroupOrderView, getInitialGroupOrderState, GroupOrderViewState } from '
 import { GroupOrderDetailView } from './components/GroupOrderDetailView';
 import { GroupOrderTaskDetailView } from './components/GroupOrderTaskDetailView';
 import ImportantBusinessView from './components/ImportantBusinessView';
+import { TerminalInventoryView } from './components/TerminalInventoryView';
+import { FaultRuleManagementView } from './components/FaultRuleManagementView';
+import { FaultEventMonitoringView } from './components/FaultEventMonitoringView';
+import { FaultSMSConfigView } from './components/FaultSMSConfigView';
 
 const Th = ({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th className={`p-3 font-semibold border-b border-blue-500/40 whitespace-nowrap text-xs ${className}`} {...props}>
@@ -38,6 +42,8 @@ const TABS_CONFIG: { id: string; label: string }[] = [
   { id: 'ai-chat', label: '智能助手' },
   { id: 'group-order', label: '团单管理' },
   { id: 'important-business', label: '重要业务管理' },
+  { id: 'fault-management', label: '故障事件管理' },
+  { id: 'terminal-inventory', label: '终端库存管理' },
 ];
 
 const MENU_ITEMS = [
@@ -119,6 +125,30 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
         items: [
             { id: 'capabilities', label: '时限配置', icon: <SettingsIcon /> },
             { id: 'personnel', label: '客响人员管理', icon: <UserIcon /> }
+        ]
+    }
+];
+
+const FAULT_MANAGEMENT_SIDEBAR_GROUPS: SidebarGroup[] = [
+    {
+        id: 'fault-monitoring',
+        title: '故障监控',
+        items: [
+            { id: 'fault-event-monitoring-sub', label: '故障事件监控', icon: <ClockIcon /> }
+        ]
+    },
+    {
+        id: 'fault-rules',
+        title: '规则管理',
+        items: [
+            { id: 'fault-rule-management-sub', label: '故障识别规则', icon: <SettingsIcon /> }
+        ]
+    },
+    {
+        id: 'fault-config',
+        title: '配置管理',
+        items: [
+            { id: 'fault-sms-config-sub', label: '故障短信发送配置', icon: <SendIcon /> }
         ]
     }
 ];
@@ -216,7 +246,7 @@ export const App: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState('default');
   const chatSessionRefs = useRef<Record<string, Chat>>({});
 
-  const [dropdownState, setDropdownState] = useState<{ isOpen: boolean, x: number, y: number }>({ isOpen: false, x: 0, y: 0 });
+  const [dropdownState, setDropdownState] = useState<{ isOpen: boolean, x: number, y: number, menu: string }>({ isOpen: false, x: 0, y: 0, menu: '' });
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string } | null>(null);
 
   // GroupOrderView State - Lifted Up
@@ -535,6 +565,11 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
   const [complaintSidebarCollapsed, setComplaintSidebarCollapsed] = useState(false);
   const [activeSidebarFolder, setActiveSidebarFolder] = useState<string>('');
 
+  const [faultManagementTabs, setFaultManagementTabs] = useState<ComplaintTabItem[]>([]);
+  const [activeFaultManagementTabId, setActiveFaultManagementTabId] = useState<string | null>(null);
+  const [faultManagementSidebarCollapsed, setFaultManagementSidebarCollapsed] = useState(false);
+  const [activeFaultSidebarFolder, setActiveFaultSidebarFolder] = useState<string>('');
+
   useEffect(() => {
     setOtnData(MOCK_DATA); setFilteredOtnData(MOCK_DATA);
     setSpnData(MOCK_SPN_DATA); setFilteredSpnData(MOCK_SPN_DATA);
@@ -576,55 +611,84 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
   };
 
   const handleSidebarClick = (key: string) => {
-      setActiveSidebarFolder(key);
-      if (key === 'new') {
-          const tabId = 'new-ticket';
-          if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '新增工单', type: 'create' }]);
-          setActiveComplaintTabId(tabId);
-      } else if (key === 'capabilities') {
-          const tabId = 'config-capabilities';
-          if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '时限配置', type: 'config' }]);
-          setActiveComplaintTabId(tabId);
-      } else if (key === 'personnel') {
-          const tabId = 'config-personnel';
-          if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '客响人员管理', type: 'personnel' }]);
-          setActiveComplaintTabId(tabId);
-      } else if (key === 'stats') {
-          const tabId = 'stats-analysis';
-          if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '统计分析', type: 'stats' }]);
-          setActiveComplaintTabId(tabId);
-      } else {
-          const map: Record<string, {label: string, type: 'pending' | 'todo' | 'done' | 'all'}> = {
-              'pendingDispatch': { label: '故障派单', type: 'pending' },
-              'todo': { label: '待办工单', type: 'todo' },
-              'done': { label: '已办工单', type: 'done' },
-              'all': { label: '全量工单', type: 'all' }
+      if (activeTab === 'complaint') {
+          setActiveSidebarFolder(key);
+          if (key === 'new') {
+              const tabId = 'new-ticket';
+              if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '新增工单', type: 'create' }]);
+              setActiveComplaintTabId(tabId);
+          } else if (key === 'capabilities') {
+              const tabId = 'config-capabilities';
+              if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '时限配置', type: 'config' }]);
+              setActiveComplaintTabId(tabId);
+          } else if (key === 'personnel') {
+              const tabId = 'config-personnel';
+              if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '客响人员管理', type: 'personnel' }]);
+              setActiveComplaintTabId(tabId);
+          } else if (key === 'stats') {
+              const tabId = 'stats-analysis';
+              if (!complaintTabs.find(t => t.id === tabId)) setComplaintTabs(prev => [...prev, { id: tabId, label: '统计分析', type: 'stats' }]);
+              setActiveComplaintTabId(tabId);
+          } else {
+              const map: Record<string, {label: string, type: 'pending' | 'todo' | 'done' | 'all'}> = {
+                  'pendingDispatch': { label: '故障派单', type: 'pending' },
+                  'todo': { label: '待办工单', type: 'todo' },
+                  'done': { label: '已办工单', type: 'done' },
+                  'all': { label: '全量工单', type: 'all' }
+              };
+              const target = map[key];
+              if (target) {
+                  if (!complaintTabs.find(t => t.id === key)) setComplaintTabs(prev => [...prev, { id: key, label: target.label, type: target.type }]);
+                  setActiveComplaintTabId(key);
+              }
+          }
+      } else if (activeTab === 'fault-management') {
+          setActiveFaultSidebarFolder(key);
+          const map: Record<string, {label: string, type: any}> = {
+              'fault-event-monitoring-sub': { label: '故障事件监控', type: 'all' },
+              'fault-rule-management-sub': { label: '故障识别规则', type: 'config' },
+              'fault-sms-config-sub': { label: '故障短信发送配置', type: 'personnel' }
           };
           const target = map[key];
           if (target) {
-              if (!complaintTabs.find(t => t.id === key)) setComplaintTabs(prev => [...prev, { id: key, label: target.label, type: target.type }]);
-              setActiveComplaintTabId(key);
+              if (!faultManagementTabs.find(t => t.id === key)) setFaultManagementTabs(prev => [...prev, { id: key, label: target.label, type: target.type }]);
+              setActiveFaultManagementTabId(key);
           }
       }
   };
 
   const handleCloseComplaintTab = (e: React.MouseEvent | null, id: string) => {
       if (e) e.stopPropagation();
-      const newTabs = complaintTabs.filter(t => t.id !== id);
-      setComplaintTabs(newTabs);
-      if (activeComplaintTabId === id) {
-          if (newTabs.length > 0) {
-              const nextTab = newTabs[newTabs.length - 1];
-              setActiveComplaintTabId(nextTab.id);
-              if (nextTab.type === 'stats') setActiveSidebarFolder('stats');
-              else if (nextTab.type === 'config') setActiveSidebarFolder('capabilities');
-              else if (nextTab.type === 'personnel') setActiveSidebarFolder('personnel');
-              else if (nextTab.type === 'create') setActiveSidebarFolder('new');
-              else if (nextTab.type !== 'detail') setActiveSidebarFolder(nextTab.id);
-              else setActiveSidebarFolder('');
-          } else {
-              setActiveComplaintTabId(null);
-              setActiveSidebarFolder('');
+      if (activeTab === 'complaint') {
+          const newTabs = complaintTabs.filter(t => t.id !== id);
+          setComplaintTabs(newTabs);
+          if (activeComplaintTabId === id) {
+              if (newTabs.length > 0) {
+                  const nextTab = newTabs[newTabs.length - 1];
+                  setActiveComplaintTabId(nextTab.id);
+                  if (nextTab.type === 'stats') setActiveSidebarFolder('stats');
+                  else if (nextTab.type === 'config') setActiveSidebarFolder('capabilities');
+                  else if (nextTab.type === 'personnel') setActiveSidebarFolder('personnel');
+                  else if (nextTab.type === 'create') setActiveSidebarFolder('new');
+                  else if (nextTab.type !== 'detail') setActiveSidebarFolder(nextTab.id);
+                  else setActiveSidebarFolder('');
+              } else {
+                  setActiveComplaintTabId(null);
+                  setActiveSidebarFolder('');
+              }
+          }
+      } else if (activeTab === 'fault-management') {
+          const newTabs = faultManagementTabs.filter(t => t.id !== id);
+          setFaultManagementTabs(newTabs);
+          if (activeFaultManagementTabId === id) {
+              if (newTabs.length > 0) {
+                  const nextTab = newTabs[newTabs.length - 1];
+                  setActiveFaultManagementTabId(nextTab.id);
+                  setActiveFaultSidebarFolder(nextTab.id);
+              } else {
+                  setActiveFaultManagementTabId(null);
+                  setActiveFaultSidebarFolder('');
+              }
           }
       }
   };
@@ -826,6 +890,25 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch((e) => { console.error(`Error attempting to enable full-screen mode: ${e.message} (${e.name})`); });
     } else { if (document.exitFullscreen) document.exitFullscreen(); }
+  };
+
+  const renderFaultManagementContent = () => {
+    if (faultManagementTabs.length === 0) return null;
+
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {faultManagementTabs.map((tab) => {
+          const isActive = activeFaultManagementTabId === tab.id;
+          return (
+            <div key={tab.id} className={`flex-1 flex flex-col h-full ${isActive ? '' : 'hidden'}`}>
+              {tab.id === 'fault-event-monitoring-sub' ? <FaultEventMonitoringView /> : 
+               tab.id === 'fault-rule-management-sub' ? <FaultRuleManagementView /> : 
+               <FaultSMSConfigView />}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const renderStandardView = () => {
@@ -1230,7 +1313,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                 <div ref={menuRef} className="flex-1 flex items-center gap-1 h-full overflow-x-auto no-scrollbar scroll-smooth px-2 min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {MENU_ITEMS.map(item => { 
                         const isActive = activeMenu === item; 
-                        const hasDropdown = item === '综合(新)'; 
+                        const hasDropdown = item === '综合(新)' || item === '专线(新)'; 
                         if (hasDropdown) {
                             return (
                                 <div 
@@ -1239,7 +1322,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                     onClick={() => setActiveMenu(item)}
                                     onMouseEnter={(e) => {
                                         const rect = e.currentTarget.getBoundingClientRect();
-                                        setDropdownState({ isOpen: true, x: rect.left, y: rect.bottom });
+                                        setDropdownState({ isOpen: true, x: rect.left, y: rect.bottom, menu: item });
                                     }}
                                     onMouseLeave={() => setDropdownState(prev => ({...prev, isOpen: false}))}
                                 >
@@ -1378,6 +1461,64 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                             />
                         ) : tabId === 'important-business' ? (
                             <ImportantBusinessView />
+                        ) : tabId === 'fault-management' ? (
+                            <div className="flex flex-1 overflow-hidden h-full">
+                                <div className={`${faultManagementSidebarCollapsed ? 'w-[53px]' : 'w-48'} bg-transparent border border-blue-500/30 mr-2 transition-all duration-500 ease-in-out flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.3)]`}>
+                                    <div className={`h-[35px] flex items-center ${faultManagementSidebarCollapsed ? 'justify-center' : 'justify-between px-3'} border-b border-blue-500/20 bg-transparent shrink-0`}> 
+                                        {!faultManagementSidebarCollapsed && <span className="text-blue-100 font-bold tracking-wider text-[12px] whitespace-nowrap">故障事件管理</span>}
+                                        <button onClick={() => setFaultManagementSidebarCollapsed(!faultManagementSidebarCollapsed)} className="text-blue-300 hover:text-white transition-colors flex items-center justify-center"> 
+                                            <div className="w-5 h-5 flex items-center justify-center">{faultManagementSidebarCollapsed ? <SidebarOpenIcon /> : <SidebarCloseIcon />}</div> 
+                                        </button> 
+                                    </div>
+                                    <div className="flex-1 py-2 overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                                        {FAULT_MANAGEMENT_SIDEBAR_GROUPS.map((group) => (
+                                            <div key={group.id} className="flex flex-col gap-1">
+                                                {!faultManagementSidebarCollapsed && ( <div className="px-3 py-1 text-xs text-blue-400/70 font-bold uppercase tracking-wider border-b border-blue-500/10 mb-1 mx-1">{group.title}</div> )}
+                                                {group.items.map(item => ( <div key={item.id} onClick={() => handleSidebarClick(item.id)} className={`relative flex items-center gap-3 px-3 py-2 cursor-pointer transition-all mx-1 rounded-sm ${activeFaultSidebarFolder === item.id ? 'bg-gradient-to-r from-blue-600/40 to-blue-600/10 text-white border-l-2 border-neon-blue shadow-[0_0_10px_rgba(0,210,255,0.2)]' : 'text-white/80 hover:bg-white/10 hover:text-white border-l-2 border-transparent'} ${faultManagementSidebarCollapsed ? 'justify-center px-0' : ''}`} title={faultManagementSidebarCollapsed ? item.label : ''}> <div className="w-5 h-5 flex items-center justify-center shrink-0 relative">{item.icon}</div> {!faultManagementSidebarCollapsed && ( <span className="text-sm whitespace-nowrap truncate">{item.label}</span> )} </div> ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
+                                    {faultManagementTabs.length > 0 && (
+                                        <div className="flex items-end gap-[6px] pl-0 pr-4 h-[35px] mt-px border-b border-blue-500/20 bg-[#0c1a35]/20 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                                            {faultManagementTabs.map((tab) => {
+                                                const isActive = activeFaultManagementTabId === tab.id;
+                                                return (
+                                                    <div 
+                                                        key={tab.id} 
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+                                                        }}
+                                                        onClick={() => { setActiveFaultManagementTabId(tab.id); setActiveFaultSidebarFolder(tab.id); }} 
+                                                        className={`
+                                                            relative flex items-center justify-center h-full cursor-pointer transition-all duration-300 min-w-[90px] px-3 overflow-hidden group
+                                                            ${isActive 
+                                                                ? 'z-10' 
+                                                                : 'border-t border-x border-blue-500/30 border-b-transparent hover:bg-blue-500/5 opacity-80 hover:opacity-100 bg-[#094F8B]/[0.05]'}
+                                                        `}
+                                                    >
+                                                         {isActive && (
+                                                            <>
+                                                                <div className="absolute inset-0 bg-gradient-to-b from-[#00d2ff]/10 to-transparent pointer-events-none" />
+                                                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-neon-blue shadow-[0_0_10px_#00d2ff] pointer-events-none" />
+                                                                <div className="absolute top-0 left-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                                                <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-gradient-to-b from-neon-blue via-neon-blue/50 to-transparent pointer-events-none" />
+                                                            </>
+                                                        )}
+                                                        <span className={`relative z-10 text-sm font-medium tracking-wide whitespace-nowrap truncate max-w-[100px] ${isActive ? 'text-white font-bold' : 'text-gray-300'}`}>{tab.label}</span> 
+                                                        <button onClick={(e) => handleCloseComplaintTab(e, tab.id)} className={`relative z-10 ml-2 p-0.5 rounded-full hover:bg-blue-500/20 transition-colors ${isActive ? 'opacity-100 text-white' : 'opacity-0 group-hover:opacity-100 text-gray-400'}`}> <XIcon /> </button> 
+                                                    </div> 
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {renderFaultManagementContent()}
+                                </div>
+                            </div>
+                        ) : tabId === 'terminal-inventory' ? (
+                            <TerminalInventoryView />
                         ) : tabId === 'complaint' ? (
                             <div className="flex flex-1 overflow-hidden h-full">
                                 <div className={`${complaintSidebarCollapsed ? 'w-[53px]' : 'w-48'} bg-transparent border border-blue-500/30 mr-2 transition-all duration-500 ease-in-out flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.3)]`}>
@@ -1453,30 +1594,50 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                     onMouseEnter={() => setDropdownState(prev => ({...prev, isOpen: true}))}
                     onMouseLeave={() => setDropdownState(prev => ({...prev, isOpen: false}))}
                 >
-                    <div 
-                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
-                        onClick={() => { handleOpenTab('workbench'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
-                    >
-                        综调-工作台
-                    </div>
-                    <div 
-                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
-                        onClick={() => { handleOpenTab('complaint'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
-                    >
-                        投诉支撑
-                    </div>
-                    <div 
-                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
-                        onClick={() => { handleOpenTab('group-order'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
-                    >
-                        团单管理
-                    </div>
-                    <div 
-                        className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
-                        onClick={() => { handleOpenTab('important-business'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
-                    >
-                        重要业务管理
-                    </div>
+                    {dropdownState.menu === '综合(新)' && (
+                        <>
+                            <div 
+                                className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                                onClick={() => { handleOpenTab('workbench'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
+                            >
+                                综调-工作台
+                            </div>
+                            <div 
+                                className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                                onClick={() => { handleOpenTab('complaint'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
+                            >
+                                投诉支撑
+                            </div>
+                            <div 
+                                className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                                onClick={() => { handleOpenTab('group-order'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
+                            >
+                                团单管理
+                            </div>
+                            <div 
+                                className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                                onClick={() => { handleOpenTab('terminal-inventory'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('综合(新)'); }}
+                            >
+                                终端库存管理
+                            </div>
+                        </>
+                    )}
+                    {dropdownState.menu === '专线(新)' && (
+                        <>
+                            <div 
+                                className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                                onClick={() => { handleOpenTab('important-business'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('专线(新)'); }}
+                            >
+                                重要业务管理
+                            </div>
+                            <div 
+                                className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-sm text-blue-100 hover:text-white transition-colors border-l-2 border-transparent hover:border-neon-blue" 
+                                onClick={() => { handleOpenTab('fault-management'); setDropdownState(prev => ({...prev, isOpen: false})); setActiveMenu('专线(新)'); }}
+                            >
+                                故障事件管理
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -1488,7 +1649,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                     <div 
                         className="px-4 py-2 hover:bg-[#1e3a5f]/80 cursor-pointer text-xs text-blue-100 hover:text-white transition-colors" 
                         onClick={() => {
-                            if (activeTab === 'complaint') {
+                            if (activeTab === 'complaint' || activeTab === 'fault-management') {
                                 handleCloseComplaintTab(null, contextMenu.tabId);
                             } else {
                                 handleCloseTab(null, contextMenu.tabId);
@@ -1505,6 +1666,10 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                 setComplaintTabs([]);
                                 setActiveComplaintTabId(null);
                                 setActiveSidebarFolder('');
+                            } else if (activeTab === 'fault-management') {
+                                setFaultManagementTabs([]);
+                                setActiveFaultManagementTabId(null);
+                                setActiveFaultSidebarFolder('');
                             } else {
                                 // Close all but main
                                 setVisibleTabs(['complaint']);

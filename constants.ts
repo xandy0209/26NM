@@ -63,7 +63,7 @@
  * Language: All UI text must be in Simplified Chinese.
  */
 
-import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord, GroupOrderRecord, ImportantBusinessRecord } from './types';
+import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecord, IgplRecord, RouteCityRecord, RouteRecord, SubscriptionRecord, ComplaintRecord, GroupOrderRecord, ImportantBusinessRecord, TerminalInventoryRecord, FaultRuleRecord, FaultEventRecord, FaultSMSConfigRecord } from './types';
 
 // Helper to format numbers with commas
 const formatNumber = (num: number): string => {
@@ -819,6 +819,7 @@ export const generateImportantBusinessMockData = (count: number): ImportantBusin
 
         data.push({
             id: `ib-${i}`,
+            importanceLevel: Math.random() > 0.5 ? '重要' : '特别重要',
             customerName,
             customerCode,
             businessType,
@@ -948,3 +949,165 @@ export const MOCK_ROUTE_DATA = generateRouteMockData(50);
 export const MOCK_SUBSCRIPTION_DATA = generateSubscriptionMockData(50);
 export const MOCK_COMPLAINT_DATA = generateComplaintMockData(40);
 export const MOCK_GROUP_ORDER_DATA = generateGroupOrderData(20);
+export const generateTerminalInventoryMockData = (count: number): TerminalInventoryRecord[] => {
+    const data: TerminalInventoryRecord[] = [];
+    const deviceTypes = ['千里眼', '云视讯', 'E企组网', '云无线', 'AC-AP', '云电脑'];
+    const statuses = ['库存', '已出库', '已拆除'];
+    const vendors = ['华为', '中兴', '新华三', 'TP-LINK'];
+
+    for (let i = 0; i < count; i++) {
+        const date = new Date();
+        date.setMinutes(date.getMinutes() - Math.floor(Math.random() * 1440 * 30)); // Up to 30 days ago
+        const inboundTime = date.toISOString().replace('T', ' ').substring(0, 19);
+        
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        let outboundTime = '';
+        let removedTime = '';
+        
+        if (status === '已出库' || status === '已拆除') {
+            const outDate = new Date(date);
+            outDate.setHours(outDate.getHours() + Math.floor(Math.random() * 48));
+            outboundTime = outDate.toISOString().replace('T', ' ').substring(0, 19);
+        }
+        
+        if (status === '已拆除') {
+            const remDate = new Date(outboundTime || date);
+            remDate.setHours(remDate.getHours() + Math.floor(Math.random() * 48));
+            removedTime = remDate.toISOString().replace('T', ' ').substring(0, 19);
+        }
+
+        data.push({
+            id: `sn-${i}`,
+            sn: `SN${Math.floor(Math.random() * 1000000000000)}`,
+            deviceType: deviceTypes[Math.floor(Math.random() * deviceTypes.length)],
+            status,
+            vendor: vendors[Math.floor(Math.random() * vendors.length)],
+            inboundTime,
+            outboundTime,
+            removedTime
+        });
+    }
+    return data;
+};
+
+export const MOCK_TERMINAL_INVENTORY_DATA = generateTerminalInventoryMockData(50);
+
+export const MOCK_FAULT_RULES: FaultRuleRecord[] = [
+    {
+        id: 'rule-1',
+        alarmObject: '端口',
+        resourceInterface: '端',
+        alarmTitle: 'R_LOS, ETH_LOS, 以太网物理接口(ETPI) 信号丢失(LOS), 信号丢失告警',
+        faultResult: '业务中断',
+        updateTime: '2023-10-25 10:00:00'
+    },
+    {
+        id: 'rule-2',
+        alarmObject: '单板',
+        resourceInterface: '端',
+        alarmTitle: 'BD_STATUS, BUS_ERR, 单板脱位, 单板离线, 单板故障',
+        faultResult: '业务中断',
+        updateTime: '2023-10-25 10:05:00'
+    },
+    {
+        id: 'rule-3',
+        alarmObject: '网元',
+        resourceInterface: '端',
+        alarmTitle: 'NE_COMMU_BREAK, 设备离线, MUT_LOS, NE_NOT_LOGIN, 承载网管系统告警, 网元断链',
+        faultResult: '业务中断',
+        updateTime: '2023-10-25 10:10:00'
+    },
+    {
+        id: 'rule-4',
+        alarmObject: '端口',
+        resourceInterface: '路径',
+        alarmTitle: 'R_LOS, ETH_LOS, 以太网物理接口(ETPI) 信号丢失(LOS), 信号丢失告警',
+        faultResult: '业务中断/保护降级',
+        updateTime: '2023-10-25 10:15:00'
+    },
+    {
+        id: 'rule-5',
+        alarmObject: '单板',
+        resourceInterface: '路径',
+        alarmTitle: 'BD_STATUS, BUS_ERR, 单板脱位, 单板离线, 单板故障',
+        faultResult: '业务中断/保护降级',
+        updateTime: '2023-10-25 10:20:00'
+    },
+    {
+        id: 'rule-6',
+        alarmObject: '网元',
+        resourceInterface: '路径',
+        alarmTitle: 'NE_COMMU_BREAK, 设备离线, MUT_LOS, NE_NOT_LOGIN, 承载网管系统告警, 网元断链',
+        faultResult: '业务中断/保护降级',
+        updateTime: '2023-10-25 10:25:00'
+    }
+];
+
+export const generateFaultEventMockData = (count: number): FaultEventRecord[] => {
+    const data: FaultEventRecord[] = [];
+    const recognitionResults: ('业务中断' | '保护降级')[] = ['业务中断', '保护降级'];
+    const eventStatuses: ('活动' | '历史')[] = ['活动', '历史'];
+    const customers = ["内蒙古伊利实业集团", "内蒙古蒙牛乳业", "内蒙古电力集团", "包头钢铁集团", "内蒙古一机集团"];
+
+    for (let i = 0; i < count; i++) {
+        const { productInstance, circuitCode, timeStr } = generateCommonFields(i, 'Event');
+        
+        const eventDate = new Date(timeStr.replace(' ', 'T'));
+        const faultDate = new Date(eventDate.getTime() - (Math.floor(Math.random() * 60) + 10) * 60000);
+        const recoveryDate = new Date(eventDate.getTime() + (Math.floor(Math.random() * 120) + 30) * 60000);
+        
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const formatDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+        data.push({
+            id: `event-${i}`,
+            eventNo: `E-${new Date().getFullYear()}${pad(new Date().getMonth() + 1)}${pad(new Date().getDate())}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+            groupCustomerCode: `GC-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`,
+            groupCustomerName: customers[i % customers.length],
+            productInstance,
+            circuitCode,
+            recognitionResult: recognitionResults[Math.floor(Math.random() * recognitionResults.length)],
+            eventStatus: eventStatuses[Math.floor(Math.random() * eventStatuses.length)],
+            eventTime: timeStr,
+            faultTime: formatDate(faultDate),
+            recoveryTime: Math.random() > 0.3 ? formatDate(recoveryDate) : '-',
+            snapshotUrl: `https://picsum.photos/seed/fault-${i}/800/600`
+        });
+    }
+    return data;
+};
+
+export const generateFaultSMSConfigMockData = (count: number): FaultSMSConfigRecord[] => {
+  const data: FaultSMSConfigRecord[] = [];
+  const businessTypes = ["数据专线", "互联网专线", "语音专线", "MPLS-VPN专线", "APN专线"];
+  const names = ["张三", "李四", "王五", "赵六", "钱七", "孙八"];
+  const customers = ["内蒙古伊利实业集团", "内蒙古蒙牛乳业", "内蒙古电力集团", "包头钢铁集团", "内蒙古一机集团"];
+
+  for (let i = 0; i < count; i++) {
+    const randomSuffix = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+    const productInstance = `209${randomSuffix}`; 
+    
+    const businessType = businessTypes[i % businessTypes.length];
+    const customerName = customers[i % customers.length];
+    const customerCode = `CUST-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`;
+    
+    const recipientCount = Math.floor(Math.random() * 2) + 1;
+    const recipients = [];
+    for (let j = 0; j < recipientCount; j++) {
+      recipients.push({
+        name: names[Math.floor(Math.random() * names.length)],
+        phone: `13${Math.floor(Math.random() * 1000000000).toString().padStart(9, '0')}`
+      });
+    }
+
+    data.push({
+      id: `sms-config-${i}`,
+      productInstance,
+      recipients,
+      businessType,
+      customerName,
+      customerCode
+    });
+  }
+  return data;
+};
