@@ -677,6 +677,7 @@ export const generateComplaintMockData = (count: number): ComplaintRecord[] => {
     // Specific requested types for the 'Fault Dispatch' scenario
     const allowedFaultDispatchTypes = ['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'];
 
+    const recognitionResults = ['业务中断', '保护降级', '性能劣化', '隐患'];
     const faultResults = ['已修复', '误报', '观察中'];
     const faultTypes = ['光缆故障', '设备故障', '配置错误', '电力故障', '其他'];
     const assigneeRoles = ['铁通班组', '分公司客响', '综调中心'];
@@ -1071,7 +1072,8 @@ export const generateFaultEventMockData = (count: number): FaultEventRecord[] =>
             eventTime: timeStr,
             faultTime: formatDate(faultDate),
             recoveryTime: Math.random() > 0.3 ? formatDate(recoveryDate) : '-',
-            snapshotUrl: `https://picsum.photos/seed/fault-${i}/800/600`
+            snapshotUrl: `https://picsum.photos/seed/fault-${i}/800/600`,
+            businessType: ['数据专线', '互联网专线', '语音专线', 'MPLS-VPN专线', 'APN专线'][Math.floor(Math.random() * 5)]
         });
     }
     return data;

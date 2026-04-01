@@ -252,6 +252,8 @@ export interface ComplaintRecord {
   ticketSource?: string;          // 工单来源
   aAssuranceLevel?: string;       // A端保障等级
   zAssuranceLevel?: string;       // Z端保障等级
+  finishTime?: string;            // 完成时间
+  recognitionResult?: string;     // 识别结果
 }
 
 export interface GroupOrderRecord {
@@ -326,6 +328,7 @@ export interface FaultEventRecord {
   faultTime: string;          // 故障产生时间
   recoveryTime: string;       // 故障恢复时间
   snapshotUrl: string;        // 事件快照 (URL or base64)
+  businessType: string;       // 业务类型
 }
 
 export interface FaultSMSConfigRecord {
@@ -355,6 +358,8 @@ export interface FilterState {
   businessCategory?: string;
   productType?: string;
   assuranceLevel?: string;
+  recognitionResult?: string;
+  eventTime?: string;
 }
 
 export interface ChatMessage {

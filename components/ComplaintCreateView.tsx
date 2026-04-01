@@ -57,7 +57,7 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
     contactPhone: '',
     assigneeCity: '呼和浩特市',
     assigneeRole: '铁通班组',
-    businessCategory: '专线', 
+    businessCategory: '', 
     businessType: '',
     customerCode: '',
     serviceAddressA: '',
@@ -75,12 +75,14 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
     teamZ: '',           
     aAssuranceLevel: '',
     zAssuranceLevel: '',
+    broadbandAccount: '',
   });
 
   const [attachments, setAttachments] = useState<{ id: string, name: string, size: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [modalContext, setModalContext] = useState<'专线' | '企宽' | null>(null);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   
@@ -116,7 +118,32 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
   }, [notification]);
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'businessCategory') {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value,
+        productInstance: '',
+        circuitCode: '',
+        businessType: '',
+        broadbandAccount: '',
+        customerName: '',
+        customerCode: '',
+        serviceAddressA: '',
+        serviceAddressZ: '',
+        cityA: '',
+        cityZ: '',
+        aAssuranceLevel: '',
+        zAssuranceLevel: '',
+        dispatchA: false,
+        dispatchZ: false,
+        dispatchObjectA: '',
+        teamA: '',
+        dispatchObjectZ: '',
+        teamZ: '',
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleServiceSelect = (record: SubscriptionRecord) => {
@@ -126,6 +153,7 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
         productInstance: record.productInstance,
         circuitCode: record.circuitCode,
         businessType: record.serviceType,
+        broadbandAccount: record.broadbandAccount || '',
         customerName: record.customerName,
         customerCode: record.customerCode,
         serviceAddressA: record.addressA || '',
@@ -150,6 +178,7 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
 
       const errors: string[] = [];
 
+      if (!formData.businessCategory) errors.push("业务分类");
       if (!formData.productInstance) errors.push("产品实例 (请点击选择)");
       if (!formData.faultTime) errors.push("故障时间");
       if (!formData.contactPerson) errors.push("投诉人");
@@ -244,7 +273,7 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
                     投诉业务
                 </h3>
                 <div className="grid grid-cols-3 gap-x-8 gap-y-4 bg-blue-900/10 p-6 border border-blue-500/30 rounded-sm shadow-sm">
-                    <FormRow label="业务分类">
+                    <FormRow label="业务分类" required>
                         <StyledSelect 
                             className="w-full"
                             value={formData.businessCategory} 
@@ -256,56 +285,86 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
                         </StyledSelect>
                     </FormRow>
 
-                    <FormRow label="业务类型">
-                        <StyledSelect 
-                            className="w-full bg-[#0f172a]/20 text-gray-400 cursor-not-allowed border-blue-500/30"
-                            value={formData.businessType} 
-                            onChange={(e) => handleChange('businessType', e.target.value)}
-                            disabled={true}
-                        >
-                            <option value="">自动回填</option>
-                            <option value="专线">专线</option>
-                            <option value="数据专线">数据专线</option>
-                            <option value="互联网专线">互联网专线</option>
-                            <option value="MPLS-VPN">MPLS-VPN</option>
-                            <option value="企宽">企宽</option>
-                            <option value="云网">云网</option>
-                        </StyledSelect>
-                    </FormRow>
+                    {formData.businessCategory === '专线' && (
+                        <>
+                            <FormRow label="产品实例" required>
+                                <StyledInput 
+                                    className="w-full cursor-pointer hover:border-neon-blue bg-[#0f172a] placeholder-blue-500/50"
+                                    value={formData.productInstance} 
+                                    onClick={() => { setModalContext('专线'); setIsServiceModalOpen(true); }}
+                                    readOnly
+                                    placeholder="点击选择业务"
+                                />
+                            </FormRow>
+                            <FormRow label="业务类型">
+                                <StyledSelect 
+                                    className="w-full bg-[#0f172a]/20 text-gray-400 cursor-not-allowed border-blue-500/30"
+                                    value={formData.businessType} 
+                                    onChange={(e) => handleChange('businessType', e.target.value)}
+                                    disabled={true}
+                                >
+                                    <option value="">自动回填</option>
+                                    <option value="专线">专线</option>
+                                    <option value="数据专线">数据专线</option>
+                                    <option value="互联网专线">互联网专线</option>
+                                    <option value="MPLS-VPN">MPLS-VPN</option>
+                                    <option value="企宽">企宽</option>
+                                    <option value="云网">云网</option>
+                                </StyledSelect>
+                            </FormRow>
+                            <FormRow label="电路代号">
+                                <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.circuitCode} readOnly disabled placeholder="自动回填" />
+                            </FormRow>
+                        </>
+                    )}
 
-                    <FormRow label="产品实例" required>
-                        <StyledInput 
-                            className="w-full cursor-pointer hover:border-neon-blue bg-[#0f172a] placeholder-blue-500/50"
-                            value={formData.productInstance} 
-                            onClick={() => setIsServiceModalOpen(true)}
-                            readOnly
-                            placeholder="点击选择业务"
-                        />
-                    </FormRow>
-                    <FormRow label="电路代号">
-                        <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.circuitCode} readOnly disabled placeholder="自动回填" />
-                    </FormRow>
-                    <FormRow label="客户名称">
-                        <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.customerName} readOnly disabled placeholder="自动回填" />
-                    </FormRow>
-                    <FormRow label="客户编号">
-                        <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.customerCode} readOnly disabled placeholder="自动回填" />
-                    </FormRow>
-                    <FormRow label="A端保障等级">
-                        <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={(formData as any).aAssuranceLevel} readOnly disabled placeholder="自动回填" />
-                    </FormRow>
-                    {formData.businessType === '数据专线' && (
-                        <FormRow label="Z端保障等级">
-                            <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={(formData as any).zAssuranceLevel} readOnly disabled placeholder="自动回填" />
+                    {formData.businessCategory === '企宽' && (
+                        <FormRow label="宽带账号" required>
+                            <StyledInput 
+                                className="w-full cursor-pointer hover:border-neon-blue bg-[#0f172a] placeholder-blue-500/50"
+                                value={(formData as any).broadbandAccount || ''} 
+                                onClick={() => { setModalContext('企宽'); setIsServiceModalOpen(true); }}
+                                readOnly
+                                placeholder="点击选择企宽业务"
+                            />
                         </FormRow>
                     )}
-                    <FormRow label="业务地址">
-                        <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.serviceAddressA} readOnly disabled placeholder="自动回填" />
-                    </FormRow>
-                    {formData.businessType === '数据专线' && (
-                        <FormRow label="Z端业务地址">
-                            <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.serviceAddressZ} readOnly disabled placeholder="自动回填" />
-                        </FormRow>
+
+                    {(formData.businessCategory === '专线' || formData.businessCategory === '企宽') && (
+                        <>
+                            <FormRow label="客户名称">
+                                <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.customerName} readOnly disabled placeholder="自动回填" />
+                            </FormRow>
+                            <FormRow label="客户编号">
+                                <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.customerCode} readOnly disabled placeholder="自动回填" />
+                            </FormRow>
+                        </>
+                    )}
+
+                    {formData.businessCategory === '专线' && (
+                        <>
+                            <FormRow label={formData.businessType === '数据专线' ? 'A端保障等级' : '保障等级'}>
+                                <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={(formData as any).aAssuranceLevel} readOnly disabled placeholder="自动回填" />
+                            </FormRow>
+                            {formData.businessType === '数据专线' && (
+                                <FormRow label="Z端保障等级">
+                                    <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={(formData as any).zAssuranceLevel} readOnly disabled placeholder="自动回填" />
+                                </FormRow>
+                            )}
+                        </>
+                    )}
+
+                    {(formData.businessCategory === '专线' || formData.businessCategory === '企宽') && (
+                        <>
+                            <FormRow label={formData.businessType === '数据专线' ? 'A端业务地址' : '业务地址'}>
+                                <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.serviceAddressA} readOnly disabled placeholder="自动回填" />
+                            </FormRow>
+                            {formData.businessType === '数据专线' && formData.businessCategory === '专线' && (
+                                <FormRow label="Z端业务地址">
+                                    <StyledInput className="w-full bg-slate-800/50 text-gray-400 cursor-not-allowed" value={formData.serviceAddressZ} readOnly disabled placeholder="自动回填" />
+                                </FormRow>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -550,9 +609,12 @@ export const ComplaintCreateView: React.FC<ComplaintCreateViewProps> = ({ onCanc
 
         <ServiceSelectionModal 
             isOpen={isServiceModalOpen}
-            onClose={() => setIsServiceModalOpen(false)}
+            onClose={() => { setIsServiceModalOpen(false); setModalContext(null); }}
             onConfirm={handleServiceSelect}
             showAssuranceLevel={true}
+            initialBusinessCategory={modalContext || undefined}
+            hideServiceType={modalContext !== null}
+            hideBusinessCategory={modalContext !== null}
         />
     </div>
   );

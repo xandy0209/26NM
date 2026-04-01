@@ -4,7 +4,7 @@ import { OtnRecord, SpnRecord, InternetRecord, AlarmRecord, IplRecord, MplsRecor
 import { MOCK_DATA, MOCK_SPN_DATA, MOCK_INTERNET_DATA, MOCK_ALARM_DATA, MOCK_IPL_DATA, MOCK_MPLS_DATA, MOCK_IGPL_DATA, MOCK_ROUTE_CITY_DATA, MOCK_ROUTE_DATA, MOCK_SUBSCRIPTION_DATA, MOCK_COMPLAINT_DATA, INNER_MONGOLIA_CITIES } from './constants';
 import { StyledInput, StyledButton, StyledSelect } from './components/UI';
 import { Pagination } from './components/Pagination';
-import { SearchIcon, DownloadIcon, XIcon, RefreshCwIcon, PlusCircleIcon, SendIcon, ClockIcon, CheckCircleIcon, SidebarCloseIcon, SidebarOpenIcon, FolderIcon, SettingsIcon, BarChartIcon, BellIcon, SparklesIcon, BotIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, UserIcon } from './components/Icons';
+import { SearchIcon, DownloadIcon, XIcon, RefreshCwIcon, PlusCircleIcon, SendIcon, ClockIcon, CheckCircleIcon, SidebarCloseIcon, SidebarOpenIcon, FolderIcon, SettingsIcon, BarChartIcon, BellIcon, SparklesIcon, BotIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, UserIcon, ZoomInIcon, ZoomOutIcon } from './components/Icons';
 import { ExportModal } from './components/ExportModal';
 import { ComplaintModal } from './components/ComplaintModal';
 import { ComplaintDetailView } from './components/ComplaintDetailView';
@@ -138,16 +138,10 @@ const FAULT_MANAGEMENT_SIDEBAR_GROUPS: SidebarGroup[] = [
         ]
     },
     {
-        id: 'fault-rules',
-        title: '规则管理',
-        items: [
-            { id: 'fault-rule-management-sub', label: '故障识别规则', icon: <SettingsIcon /> }
-        ]
-    },
-    {
         id: 'fault-config',
         title: '配置管理',
         items: [
+            { id: 'fault-rule-management-sub', label: '故障识别规则', icon: <SettingsIcon /> },
             { id: 'fault-sms-config-sub', label: '故障短信发送配置', icon: <SendIcon /> }
         ]
     }
@@ -177,6 +171,7 @@ export const App: React.FC = () => {
   const [visibleTabs, setVisibleTabs] = useState<string[]>(['complaint']);
   const [activeMenu, setActiveMenu] = useState('综合(新)'); 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
   
   const [apiKey, setApiKey] = useState<string>('');
 
@@ -961,17 +956,15 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     // ... (rest of renderComplaintContent logic stays the same)
     
     const pendingCols = [
-        { label: '告警时间', key: 'alarmTime' },
-        { label: '发现时间', key: 'discoveryTime' },
-        { label: '故障快照', key: 'faultSnapshot' },
-        { label: '故障类型', key: 'faultType' },
-        { label: '故障描述', key: 'complaintContent' },
-        { label: '业务类型', key: 'productType' }, 
-        { label: '业务标识', key: 'productInstance' },
-        { label: 'A端保障等级', key: 'aAssuranceLevel' },
-        { label: 'Z端保障等级', key: 'zAssuranceLevel' },
+        { label: '事件编号', key: 'ticketNo' },
+        { label: '客户编码', key: 'customerCode' },
         { label: '客户名称', key: 'customerName' },
-        { label: '客户编号', key: 'customerCode' },
+        { label: '产品实例', key: 'productInstance' },
+        { label: '电路代号', key: 'circuitCode' },
+        { label: '识别结果', key: 'faultType' },
+        { label: '事件快照', key: 'faultSnapshot' },
+        { label: '事件产生时间', key: 'complaintTime' },
+        { label: '故障产生时间', key: 'faultTime' },
     ];
     
     const todoCols = [
@@ -1033,7 +1026,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
     ];
 
     const currentCols = isPending ? pendingCols : isTodo ? todoCols : isDone ? doneCols : isAll ? allCols : defaultCols;
-    const currentPlaceholder = isPending ? "客户名称/客户编号/业务标识" : isTodo ? "工单编号/客户名称/客户编号/业务标识/电路代号" : isDone ? "工单编号/客户名称/客户编号/电路代号" : isAll ? "工单编号/客户名称/客户编号/业务标识/电路代号" : "工单号/客户/电路/关键字...";
+    const currentPlaceholder = isPending ? "客户名称/客户编码/产品实例" : isTodo ? "工单编号/客户名称/客户编号/业务标识/电路代号" : isDone ? "工单编号/客户名称/客户编号/电路代号" : isAll ? "工单编号/客户名称/客户编号/业务标识/电路代号" : "工单号/客户/电路/关键字...";
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent border border-blue-500/30 shadow-[inset_0_0_20px_rgba(0,133,208,0.1)] relative">
@@ -1052,7 +1045,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
             />
             {/* Filter bar code omitted for brevity as it is largely unchanged, just context */}
             <div className="bg-transparent p-3 border-b border-blue-500/20 flex flex-wrap items-center gap-3 shrink-0">
-               <StyledInput 
+                <StyledInput 
                     placeholder={currentPlaceholder} 
                     className="w-80" 
                     value={currentFilters.keyword || ''} 
@@ -1074,37 +1067,51 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
 
                 {/* --- Added Filters Logic --- */}
                 
-                <StyledSelect
-                    className="w-32"
-                    value={currentFilters.assuranceLevel || ''}
-                    onChange={(e) => setFilters({...currentFilters, assuranceLevel: e.target.value})}
-                >
-                    <option value="">保障等级</option>
-                    <option value="AAA">AAA</option>
-                    <option value="AA">AA</option>
-                    <option value="A">A</option>
-                    <option value="普通">普通</option>
-                </StyledSelect>
+                {!isPending && (
+                    <StyledSelect
+                        className="w-32"
+                        value={currentFilters.assuranceLevel || ''}
+                        onChange={(e) => setFilters({...currentFilters, assuranceLevel: e.target.value})}
+                    >
+                        <option value="">保障等级</option>
+                        <option value="AAA">AAA</option>
+                        <option value="AA">AA</option>
+                        <option value="A">A</option>
+                        <option value="普通">普通</option>
+                    </StyledSelect>
+                )}
 
-                {/* 1. Pending: Business Type, Fault Type */}
+                {/* 1. Pending: Recognition Result, Event Time */}
                 {isPending && (
                     <>
-                        <StyledSelect
-                            className="w-32"
-                            value={currentFilters.productType || ''}
-                            onChange={(e) => setFilters({...currentFilters, productType: e.target.value})}
-                        >
-                            <option value="">业务类型</option>
-                            {BUSINESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </StyledSelect>
-                        <StyledSelect
-                            className="w-32"
-                            value={currentFilters.faultType || ''}
-                            onChange={(e) => setFilters({...currentFilters, faultType: e.target.value})}
-                        >
-                            <option value="">故障类型</option>
-                            {DEFAULT_FAULT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </StyledSelect>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-blue-300 whitespace-nowrap">识别结果:</span>
+                            <StyledSelect
+                                className="w-32"
+                                value={currentFilters.recognitionResult || ''}
+                                onChange={(e) => setFilters({...currentFilters, recognitionResult: e.target.value})}
+                            >
+                                <option value="">全部</option>
+                                <option value="业务中断">业务中断</option>
+                                <option value="保护降级">保护降级</option>
+                            </StyledSelect>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-blue-300 whitespace-nowrap">事件产生时间:</span>
+                            <StyledInput
+                                type="datetime-local"
+                                className="w-48"
+                                value={currentFilters.eventTimeStart || ''}
+                                onChange={(e) => setFilters({...currentFilters, eventTimeStart: e.target.value})}
+                            />
+                            <span className="text-blue-400">-</span>
+                            <StyledInput
+                                type="datetime-local"
+                                className="w-48"
+                                value={currentFilters.eventTimeEnd || ''}
+                                onChange={(e) => setFilters({...currentFilters, eventTimeEnd: e.target.value})}
+                            />
+                        </div>
                     </>
                 )}
 
@@ -1188,21 +1195,26 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                 <tr key={record.id} className="hover:bg-blue-600/10 transition-colors border-b border-blue-500/10 last:border-0 group">
                                     {isPending ? (
                                         <>
-                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.alarmTime}</td>
-                                            <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.discoveryTime}</td>
-                                            <td className="p-3 text-blue-400 border-b border-blue-500/10 hover:underline cursor-pointer" onClick={() => setPreviewImage(record.faultSnapshot || '未知快照')}>{record.faultSnapshot}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.faultType || '-'}</td>
-                                            <td className="p-3 max-w-[200px] truncate border-b border-blue-500/10" title={record.complaintContent}>{record.complaintContent}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.productType || '-'}</td>
-                                            <td className="p-3 font-mono border-b border-blue-500/10">{record.productInstance}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.aAssuranceLevel || '-'}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.zAssuranceLevel || '-'}</td>
-                                            <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
-                                            <td className="p-3 text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
+                                                <td className="p-3 font-mono text-neon-blue border-b border-blue-500/10">{record.ticketNo}</td>
+                                                <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.customerCode}</td>
+                                                <td className="p-3 border-b border-blue-500/10">{record.customerName}</td>
+                                                <td className="p-3 font-mono text-blue-300 border-b border-blue-500/10">{record.productInstance}</td>
+                                                <td className="p-3 font-mono text-blue-300 border-b border-blue-500/10">{record.circuitCode}</td>
+                                                <td className="p-3 border-b border-blue-500/10">{record.faultType || '-'}</td>
+                                                <td className="p-3 border-b border-blue-500/10 text-center">
+                                                    <button 
+                                                        className="text-neon-blue hover:text-blue-300 transition-colors text-xs underline underline-offset-2"
+                                                        onClick={() => setPreviewImage(record.faultSnapshot || '未知快照')}
+                                                    >
+                                                        查看快照
+                                                    </button>
+                                                </td>
+                                                <td className="p-3 font-mono text-blue-300 border-b border-blue-500/10">{record.complaintTime}</td>
+                                                <td className="p-3 font-mono text-blue-300 border-b border-blue-500/10">{record.faultTime}</td>
                                         </>
                                     ) : isTodo ? (
                                         <>
-                                            <td className="p-3 font-mono text-neon-blue cursor-pointer hover:underline border-b border-blue-500/10" onClick={() => handleTicketClick(record)}>{record.ticketNo}</td>
+                                            <td className="p-3 font-mono text-neon-blue border-b border-blue-500/10">{record.ticketNo}</td>
                                             <td className="p-3 border-b border-blue-500/10">
                                                 <span className={`px-2 py-0.5 rounded-sm text-[10px] border ${
                                                     record.stage === '处理中' || record.stage === 'T1' ? 'bg-blue-500/20 border-blue-500/40 text-blue-300' :
@@ -1225,7 +1237,7 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
                                         </>
                                     ) : (
                                         <>
-                                            <td className="p-3 font-mono text-neon-blue cursor-pointer hover:underline border-b border-blue-500/10" onClick={() => handleTicketClick(record)}>{record.ticketNo}</td>
+                                            <td className="p-3 font-mono text-neon-blue border-b border-blue-500/10">{record.ticketNo}</td>
                                             <td className="p-3 border-b border-blue-500/10">{record.stage}</td>
                                             <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.complaintTime}</td>
                                             <td className="p-3 font-mono text-gray-300 border-b border-blue-500/10">{record.slaDeadline}</td>
@@ -1282,19 +1294,64 @@ You help users query data, analyze alarms, manage tickets, and provide insights.
             </div>
 
             {previewImage && (
-                <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-[#020617]/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
-                    <div className="relative w-[600px] h-[400px] p-6 bg-[#0b1730] border border-blue-500/50 rounded shadow-2xl flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setPreviewImage(null)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 rounded-full p-2">
-                            <XIcon className="w-6 h-6" />
-                        </button>
-                        <div className="w-full h-full border-2 border-dashed border-blue-500/30 rounded flex flex-col items-center justify-center bg-blue-900/10">
-                            <div className="w-16 h-16 text-blue-500/50 mb-4 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                </svg>
+                <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-[#020617]/80 backdrop-blur-sm" onClick={() => { setPreviewImage(null); setZoom(1); }}>
+                    <div className="bg-[#0b1730] border border-blue-500/40 shadow-[0_0_50px_rgba(0,133,208,0.3)] flex flex-col max-w-[90vw] max-h-[70vh] relative overflow-hidden w-[800px]" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-3 border-b border-blue-500/20 bg-[#0c2242]/50 shrink-0">
+                            <h3 className="text-sm font-bold text-blue-100 flex items-center gap-2">
+                                <SearchIcon className="w-4 h-4 text-blue-400" />
+                                故障快照查看
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
+                                    className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded transition-colors"
+                                    title="放大"
+                                >
+                                    <ZoomInIcon className="w-5 h-5" />
+                                </button>
+                                <button 
+                                    onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
+                                    className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded transition-colors"
+                                    title="缩小"
+                                >
+                                    <ZoomOutIcon className="w-5 h-5" />
+                                </button>
+                                <button 
+                                    onClick={() => setZoom(1)}
+                                    className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded transition-colors"
+                                    title="重置"
+                                >
+                                    <RefreshCwIcon className="w-5 h-5" />
+                                </button>
+                                <div className="w-px h-4 bg-blue-500/20 mx-1"></div>
+                                <button 
+                                    onClick={() => { setPreviewImage(null); setZoom(1); }} 
+                                    className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                                >
+                                    <XIcon className="w-5 h-5" />
+                                </button>
                             </div>
-                            <span className="text-blue-400/80 text-lg font-medium">故障快照占位图</span>
-                            <span className="text-blue-500/50 text-sm mt-2 font-mono">{previewImage}</span>
+                        </div>
+                        
+                        {/* Image Content */}
+                        <div className="flex-1 overflow-auto bg-black/20 flex items-center justify-center p-4 scrollbar-thin">
+                            <div 
+                                className="transition-transform duration-200 ease-out flex items-center justify-center"
+                                style={{ transform: `scale(${zoom})` }}
+                            >
+                                <img 
+                                    src={previewImage} 
+                                    alt="Fault Snapshot" 
+                                    className="max-w-full max-h-full object-contain shadow-2xl"
+                                    referrerPolicy="no-referrer"
+                                />
+                            </div>
+                        </div>
+                        
+                        {/* Zoom Indicator */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/60 border border-blue-500/30 rounded-full text-[10px] text-blue-300 pointer-events-none z-20">
+                            {isNaN(zoom) ? 100 : Math.round(zoom * 100)}%
                         </div>
                     </div>
                 </div>

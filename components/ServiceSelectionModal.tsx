@@ -17,6 +17,7 @@ interface ServiceSelectionModalProps {
   hideServiceType?: boolean;
   isImportantBusinessMode?: boolean;
   showAssuranceLevel?: boolean;
+  initialBusinessCategory?: string;
 }
 
 export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ 
@@ -29,11 +30,12 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
   hideBusinessCategory = false,
   hideServiceType = false,
   isImportantBusinessMode = false,
-  showAssuranceLevel = false
+  showAssuranceLevel = false,
+  initialBusinessCategory
 }) => {
   const [filters, setFilters] = useState({
     keyword: '',
-    businessCategory: '专线',
+    businessCategory: initialBusinessCategory || '专线',
     serviceType: '',
     city: '',
     assuranceLevel: ''
@@ -53,6 +55,12 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     }
   }, [isOpen, filters.businessCategory, filters.city]);
 
+  useEffect(() => {
+    if (initialBusinessCategory) {
+      setFilters(prev => ({ ...prev, businessCategory: initialBusinessCategory }));
+    }
+  }, [initialBusinessCategory]);
+
   const handleSearch = () => {
     const lowerKeyword = filters.keyword.toLowerCase();
     const lowerType = filters.serviceType.toLowerCase();
@@ -65,6 +73,7 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                              item.customerName.toLowerCase().includes(lowerKeyword) ||
                              item.customerCode.toLowerCase().includes(lowerKeyword) ||
                              item.productInstance.toLowerCase().includes(lowerKeyword) ||
+                             (item.broadbandAccount && item.broadbandAccount.toLowerCase().includes(lowerKeyword)) ||
                              (item.addressA && item.addressA.toLowerCase().includes(lowerKeyword)) || 
                              (item.addressZ && item.addressZ.toLowerCase().includes(lowerKeyword));
                              
@@ -143,12 +152,6 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
 
         {/* Search Bar: #13284c/30 */}
         <div className="p-4 bg-[#13284c]/30 border-b border-blue-500/10 flex items-center gap-3 shrink-0">
-            <StyledInput 
-                placeholder="客户名称/客户编号/产品实例/电路编号/业务地址" 
-                className="w-[350px]"
-                value={filters.keyword}
-                onChange={e => setFilters({...filters, keyword: e.target.value})}
-            />
             {!hideBusinessCategory && !isImportantBusinessMode && (
                 <StyledSelect 
                     className="w-auto"
@@ -159,6 +162,12 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                     <option value="企宽">企宽</option>
                 </StyledSelect>
             )}
+            <StyledInput 
+                placeholder={filters.businessCategory === '企宽' ? "客户名称/宽带账号/业务地址" : "客户名称/客户编号/产品实例/电路编号/业务地址"} 
+                className="w-[350px]"
+                value={filters.keyword}
+                onChange={e => setFilters({...filters, keyword: e.target.value})}
+            />
             {(isImportantBusinessMode || (!hideServiceType && filters.businessCategory === '专线')) && (
                 <StyledSelect 
                     className="w-auto"
@@ -172,7 +181,7 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                     <option value="MPLS-VPN专线">MPLS-VPN专线</option>
                 </StyledSelect>
             )}
-            {(isImportantBusinessMode || showAssuranceLevel) && (
+            {(filters.businessCategory !== '企宽') && (isImportantBusinessMode || showAssuranceLevel) && (
                 <StyledSelect 
                     className="w-auto"
                     value={filters.assuranceLevel}
@@ -217,7 +226,14 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                         )}
                         <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">客户名称</th>
                         <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">客户编号</th>
-                        {(isImportantBusinessMode || showAssuranceLevel) ? (
+                        {filters.businessCategory === '企宽' ? (
+                            <>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">业务分类</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">宽带账号</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">地市</th>
+                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">业务地址</th>
+                            </>
+                        ) : (isImportantBusinessMode || showAssuranceLevel) ? (
                             <>
                                 <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">业务类型</th>
                                 <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">产品实例</th>
@@ -228,14 +244,6 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                                 <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">Z端保障等级</th>
                                 <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">Z端地市</th>
                                 <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">Z端地址</th>
-                            </>
-                        ) : filters.businessCategory === '企宽' ? (
-                            <>
-                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">业务类型</th>
-                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">宽带账号</th>
-                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">地市</th>
-                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">区县</th>
-                                <th className="sticky top-0 z-10 bg-[#0c2242] p-3 border-b border-blue-500/30 font-semibold shadow-sm">接入地址</th>
                             </>
                         ) : (
                             <>
@@ -276,7 +284,14 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                                     )}
                                     <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.customerName}</td>
                                     <td className="p-3 text-blue-300 border-r border-blue-500/5 border-b border-blue-500/10">{row.customerCode}</td>
-                                    {(isImportantBusinessMode || showAssuranceLevel) ? (
+                                    {filters.businessCategory === '企宽' ? (
+                                        <>
+                                            <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.businessCategory}</td>
+                                            <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.broadbandAccount || '无账号'}</td>
+                                            <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.cityA}</td>
+                                            <td className="p-3 text-gray-300 border-b border-blue-500/10" title={row.addressA}>{row.addressA}</td>
+                                        </>
+                                    ) : (isImportantBusinessMode || showAssuranceLevel) ? (
                                         <>
                                             <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType}</td>
                                             <td className="p-3 font-mono text-neon-blue border-r border-blue-500/5 border-b border-blue-500/10">{row.productInstance}</td>
@@ -306,14 +321,6 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                                             <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType === '数据专线' ? row.cityZ : '-'}</td>
                                             <td className="p-3 text-gray-300 border-b border-blue-500/10" title={row.serviceType === '数据专线' ? row.addressZ : ''}>{row.serviceType === '数据专线' ? row.addressZ : '-'}</td>
                                         </>
-                                    ) : row.businessCategory === '企宽' ? (
-                                        <>
-                                            <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType}</td>
-                                            <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.broadbandAccount || '无账号'}</td>
-                                            <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.cityA}</td>
-                                            <td className="p-3 text-white border-r border-blue-500/5 border-b border-blue-500/10">{row.districtA}</td>
-                                            <td className="p-3 text-gray-300 border-b border-blue-500/10" title={row.addressA}>{row.addressA}</td>
-                                        </>
                                     ) : (
                                         <>
                                             <td className="p-3 text-blue-200 border-r border-blue-500/5 border-b border-blue-500/10">{row.serviceType}</td>
@@ -330,7 +337,7 @@ export const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
                         })
                     ) : (
                         <tr>
-                            <td colSpan={isMultiSelect ? ((isImportantBusinessMode || showAssuranceLevel) ? 12 : (filters.businessCategory === '企宽' ? 8 : 10)) : ((isImportantBusinessMode || showAssuranceLevel) ? 11 : (filters.businessCategory === '企宽' ? 7 : 9))} className="p-8 text-center text-blue-300/60 border-b border-blue-500/10">暂无数据</td>
+                            <td colSpan={isMultiSelect ? ((filters.businessCategory === '企宽' ? 7 : (isImportantBusinessMode || showAssuranceLevel) ? 12 : 10)) : ((filters.businessCategory === '企宽' ? 6 : (isImportantBusinessMode || showAssuranceLevel) ? 11 : 9))} className="p-8 text-center text-blue-300/60 border-b border-blue-500/10">暂无数据</td>
                         </tr>
                     )}
                 </tbody>

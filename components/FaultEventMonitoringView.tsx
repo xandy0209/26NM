@@ -15,6 +15,7 @@ export const FaultEventMonitoringView: React.FC = () => {
 
     const [filters, setFilters] = useState({
         keyword: '',
+        businessType: '',
         recognitionResult: '',
         eventStatus: '活动',
         startDate: '',
@@ -36,6 +37,7 @@ export const FaultEventMonitoringView: React.FC = () => {
                 item.productInstance.includes(filters.keyword) || 
                 item.circuitCode.includes(filters.keyword);
             const matchResult = !filters.recognitionResult || item.recognitionResult === filters.recognitionResult;
+            const matchBusinessType = !filters.businessType || item.businessType === filters.businessType;
             const matchStatus = !filters.eventStatus || item.eventStatus === filters.eventStatus;
             
             // Date filtering
@@ -50,7 +52,7 @@ export const FaultEventMonitoringView: React.FC = () => {
                 }
             }
 
-            return matchKeyword && matchResult && matchStatus && matchDate;
+            return matchKeyword && matchResult && matchBusinessType && matchStatus && matchDate;
         });
     }, [data, filters]);
 
@@ -66,6 +68,7 @@ export const FaultEventMonitoringView: React.FC = () => {
     const handleReset = () => {
         setFilters({
             keyword: '',
+            businessType: '',
             recognitionResult: '',
             eventStatus: '活动',
             startDate: '',
@@ -84,13 +87,27 @@ export const FaultEventMonitoringView: React.FC = () => {
             <div className="bg-transparent p-3 border-b border-blue-500/20 flex flex-wrap items-center justify-between gap-y-3 gap-x-6 shrink-0">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-blue-300 whitespace-nowrap">查询条件:</span>
                         <StyledInput 
                             placeholder="客户名称/客户编号/产品实例/电路代号" 
                             className="w-64"
                             value={filters.keyword}
                             onChange={(e) => setFilters({...filters, keyword: e.target.value})}
                         />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-blue-300 whitespace-nowrap">业务类型:</span>
+                        <StyledSelect 
+                            className="w-32"
+                            value={filters.businessType}
+                            onChange={(e) => setFilters({...filters, businessType: e.target.value})}
+                        >
+                            <option value="">全部</option>
+                            <option value="数据专线">数据专线</option>
+                            <option value="互联网专线">互联网专线</option>
+                            <option value="语音专线">语音专线</option>
+                            <option value="MPLS-VPN专线">MPLS-VPN专线</option>
+                            <option value="APN专线">APN专线</option>
+                        </StyledSelect>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-blue-300 whitespace-nowrap">识别结果:</span>
@@ -150,25 +167,26 @@ export const FaultEventMonitoringView: React.FC = () => {
                         <tr>
                             <th className="p-3 font-semibold border-b border-blue-500/40">事件状态</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">事件编号</th>
-                            <th className="p-3 font-semibold border-b border-blue-500/40">集团客户编码</th>
-                            <th className="p-3 font-semibold border-b border-blue-500/40">集团客户名称</th>
+                            <th className="p-3 font-semibold border-b border-blue-500/40">客户编号</th>
+                            <th className="p-3 font-semibold border-b border-blue-500/40">客户名称</th>
+                            <th className="p-3 font-semibold border-b border-blue-500/40">业务类型</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">产品实例标识</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">电路代号</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">识别结果</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">事件产生时间</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">故障产生时间</th>
                             <th className="p-3 font-semibold border-b border-blue-500/40">故障恢复时间</th>
-                            <th className="p-3 font-semibold border-b border-blue-500/40 text-center">事件快照</th>
+                            <th className="p-3 font-semibold border-b border-blue-500/40 text-center sticky right-0 z-20 bg-[#0c2242] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">事件快照</th>
                         </tr>
                     </thead>
                     <tbody className="text-white">
                         {loading ? (
                             <tr>
-                                <td colSpan={11} className="p-8 text-center text-blue-300/50 border-b border-blue-500/10 italic">加载中...</td>
+                                <td colSpan={12} className="p-8 text-center text-blue-300/50 border-b border-blue-500/10 italic">加载中...</td>
                             </tr>
                         ) : paginatedData.length === 0 ? (
                             <tr>
-                                <td colSpan={11} className="p-8 text-center text-blue-300/50 border-b border-blue-500/10 italic">暂无匹配的故障事件数据</td>
+                                <td colSpan={12} className="p-8 text-center text-blue-300/50 border-b border-blue-500/10 italic">暂无匹配的故障事件数据</td>
                             </tr>
                         ) : paginatedData.map((item) => (
                             <tr key={item.id} className="hover:bg-blue-600/10 transition-colors border-b border-blue-500/10 group">
@@ -182,6 +200,7 @@ export const FaultEventMonitoringView: React.FC = () => {
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-gray-400">{item.eventNo}</td>
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-gray-400">{item.groupCustomerCode}</td>
                                 <td className="p-3 border-b border-blue-500/10">{item.groupCustomerName}</td>
+                                <td className="p-3 border-b border-blue-500/10">{item.businessType}</td>
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-blue-300">{item.productInstance}</td>
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-blue-300">{item.circuitCode}</td>
                                 <td className="p-3 border-b border-blue-500/10">
@@ -194,7 +213,7 @@ export const FaultEventMonitoringView: React.FC = () => {
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-blue-300">{item.eventTime}</td>
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-blue-300">{item.faultTime}</td>
                                 <td className="p-3 border-b border-blue-500/10 font-mono text-blue-300">{item.recoveryTime}</td>
-                                <td className="p-3 border-b border-blue-500/10 text-center">
+                                <td className="p-3 border-b border-blue-500/10 text-center sticky right-0 z-10 bg-[#0b1730] shadow-[-5px_0_10px_rgba(0,0,0,0.1)] border-l border-blue-500/20">
                                     <button 
                                         className="text-neon-blue hover:text-blue-300 transition-colors text-xs underline underline-offset-2"
                                         onClick={() => setShowSnapshot(item.snapshotUrl)}
